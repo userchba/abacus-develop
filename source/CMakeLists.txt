@@ -42,6 +42,7 @@ set(_abacus_feature_definitions
     $<$<BOOL:${ENABLE_ELPA}>:__ELPA>
     $<$<BOOL:${ENABLE_FFT_TWO_CENTER}>:__FFT_TWO_CENTER>
     $<$<BOOL:${ENABLE_PEXSI}>:__PEXSI>
+    $<$<BOOL:${ENABLE_DDLA}>:__DDLA>
     $<$<BOOL:${DEBUG_INFO}>:__DEBUG>
     $<$<BOOL:${ENABLE_MPI}>:__MPI>
     $<$<BOOL:${USE_DSP}>:__DSP>
@@ -292,6 +293,7 @@ set(_abacus_feature_libs
     $<$<BOOL:${ENABLE_JSON}>:nlohmann_json::nlohmann_json>
     $<$<BOOL:${ENABLE_ELPA}>:ELPA::ELPA>
     $<$<BOOL:${ENABLE_PEXSI}>:PEXSI::PEXSI>
+    $<$<BOOL:${ENABLE_DDLA}>:ddla::ddla>
     $<$<BOOL:${ENABLE_CNPY}>:cnpy>
     $<$<BOOL:${ENABLE_CNPY}>:ZLIB::ZLIB>
     $<$<BOOL:${ENABLE_LIBRI}>:cereal::cereal>
@@ -428,6 +430,7 @@ foreach(
         TensorFlow::tensorflow_cc
         ZLIB::ZLIB
         PEXSI::PEXSI
+        ddla::ddla
         NCCL::NCCL
         CAL::CAL
         cusolverMp::cusolverMp

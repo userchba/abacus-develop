@@ -79,6 +79,8 @@ cmake_dependent_option(ENABLE_PEXSI "Enable PEXSI for LCAO" OFF
                        "ENABLE_LCAO;ENABLE_MPI" OFF)
 cmake_dependent_option(ENABLE_MLALGO "Enable the machine learning algorithms"
                        OFF "ENABLE_LCAO;ENABLE_MPI" OFF)
+cmake_dependent_option(ENABLE_DDLA "Enable LibDDLA distributed linear algebra"
+                       OFF "ENABLE_LCAO;ENABLE_MPI" OFF)
 
 # Two-center FFT is only used in LCAO
 cmake_dependent_option(
@@ -336,6 +338,12 @@ if(ENABLE_PEXSI)
       FATAL_ERROR "PEXSI >= 2.0.0 is required; found version ${PEXSI_VERSION}")
   endif()
   set(CMAKE_CXX_STANDARD 14)
+endif()
+if(ENABLE_DDLA)
+  # The LibDDLA public headers require C++17.
+  set_if_higher(CMAKE_CXX_STANDARD 17)
+  find_package(LibDDLA REQUIRED CONFIG)
+  message(STATUS "Found LibDDLA ${LibDDLA_VERSION}: ${LibDDLA_DIR}")
 endif()
 
 if(ENABLE_MPI)
