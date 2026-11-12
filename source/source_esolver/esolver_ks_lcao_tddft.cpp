@@ -112,6 +112,12 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
     // Run before_all_runners in ESolver_KS_LCAO
     ESolver_KS_LCAO<std::complex<double>, TR>::before_all_runners(ucell, inp);
     this->pelec->pot->set_td_field_manager(td_field_manager_);
+#ifdef __DDLA
+    if (inp.td_la_backend == "ddla")
+    {
+        ddla_ctx_.bind(this->pv.para_2d());
+    }
+#endif
 
     restart_step_ = inp.mdp.md_restart ? td_field_manager_->current_step() : 0;
     td_p = new TD_info(&ucell, this->pv, this->orb_, *td_field_manager_);

@@ -114,3 +114,23 @@ if(USE_CUDA)
     LIBS base device
     SOURCES rad_interp_cuda_test.cu ../radial_interpolation.cpp)
 endif()
+
+if(ENABLE_DDLA)
+  addtest(
+    TARGET MODULE_LCAO_tddft_ddla_context_test
+    LIBS parameter base device ddla::ddla
+    SOURCES test_ddla_context.cpp ../ddla_context.cpp)
+  foreach(rank_count IN ITEMS 2 4 6)
+    add_test(
+      NAME MODULE_LCAO_tddft_ddla_context_test_np${rank_count}
+      COMMAND
+        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_LCAO_tddft_ddla_context_test>
+        ${MPIEXEC_POSTFLAGS}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set_tests_properties(
+      MODULE_LCAO_tddft_ddla_context_test_np${rank_count}
+      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  endforeach()
+endif()

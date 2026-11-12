@@ -339,6 +339,7 @@ struct Input_para
     bool init_vecpot = false;        ///< initialize the vector potential, though file or integral
     double td_print_eij = -1.0;      ///< threshold to output Eij elements
     int td_edm = 0;                  ///< 0: new edm method   1: old edm method
+    std::string td_la_backend = "default"; ///< LCAO RT-TDDFT linear algebra: default or ddla
     int propagator = 0;              ///< method of propagator
     std::string td_exp_method = "lanczos"; ///< PW ETRS exponential backend.
     int td_exp_order = 4; ///< Fixed Taylor polynomial order.

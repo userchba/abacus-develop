@@ -882,6 +882,7 @@ OBJS_LCAO=evolve_elec.o\
       solve_propagation.o\
       boundary_fix.o\
       upsi.o\
+      ddla_context.o\
       force_stress_lcao.o\
       force_stress_assemble.o\
       force_stress_terms.o\
