@@ -24,9 +24,10 @@
 
 /**
  * - Tested function
- *   - Propagator::compute_propagator_ddla (Crank-Nicolson, td_propagator 0)
- *     - matches the ScaLAPACK Crank-Nicolson propagator on ABACUS
- *       block-cyclic layouts with uneven blocks and swapped grids.
+ *   - Propagator::compute_propagator_ddla (td_propagator 0, 1, 2)
+ *     - matches the ScaLAPACK Crank-Nicolson, 4th-order Taylor and ETRS
+ *       propagators on ABACUS block-cyclic layouts with uneven blocks and
+ *       swapped grids.
  */
 
 namespace
@@ -102,18 +103,19 @@ double max_abs_diff_all_ranks(const std::vector<std::complex<double>>& a,
 
 } // namespace
 
-// Parameters: global order, block size, swap grid.
-class PropagatorDdlaTest : public testing::TestWithParam<std::tuple<int, int, bool>>
+// Parameters: global order, block size, swap grid, propagator type.
+class PropagatorDdlaTest : public testing::TestWithParam<std::tuple<int, int, bool, int>>
 {
   protected:
     std::ofstream ofs_running;
 };
 
-TEST_P(PropagatorDdlaTest, CrankNicolsonMatchesScalapack)
+TEST_P(PropagatorDdlaTest, MatchesScalapack)
 {
     const int nlocal = std::get<0>(GetParam());
     const int nb = std::get<1>(GetParam());
     const bool swap_grid = std::get<2>(GetParam());
+    const int propagator = std::get<3>(GetParam());
 
     Parallel_Orbitals pv;
     pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
@@ -124,24 +126,26 @@ TEST_P(PropagatorDdlaTest, CrankNicolsonMatchesScalapack)
     // S is Hermitian positive definite (close to I); H is Hermitian.
     const std::vector<std::complex<double>> s_local = fill_local(dist, 11, 1.0, 0.1 / std::sqrt(nlocal));
     const std::vector<std::complex<double>> h_local = fill_local(dist, 12, 0.0, 1.0);
+    const std::vector<std::complex<double>> h_last_local = fill_local(dist, 13, 0.0, 1.0);
     const std::size_t len = s_local.size();
     std::vector<std::complex<double>> u_ref(len, std::complex<double>(0.0, 0.0));
     std::vector<std::complex<double>> u_ddla(len, std::complex<double>(0.0, 0.0));
 
-    const int propagator = 0;
-    const double md_dt = 2.0 * ModuleBase::AU_to_FS;
+    // Short step so that the Taylor series stays accurate for |H| ~ sqrt(n).
+    const double md_dt = 0.2 * ModuleBase::AU_to_FS;
     const int print_matrix = 0;
     module_rt::Propagator prop(propagator, &pv, md_dt);
     prop.compute_propagator(nlocal,
                             s_local.data(),
                             h_local.data(),
-                            nullptr,
+                            h_last_local.data(),
                             u_ref.data(),
                             ofs_running,
                             print_matrix);
     prop.compute_propagator_ddla(nlocal,
                                  s_local.data(),
                                  h_local.data(),
+                                 h_last_local.data(),
                                  u_ddla.data(),
                                  ddla,
                                  ofs_running,
@@ -156,16 +160,16 @@ TEST_P(PropagatorDdlaTest, CrankNicolsonMatchesScalapack)
     ASSERT_GT(u_norm, 0.1);
 
     const double diff = max_abs_diff_all_ranks(u_ref, u_ddla);
-    EXPECT_LT(diff, 1.0e-12 * nlocal) << "nlocal=" << nlocal << " nb=" << nb << " grid=" << dist.nrproc()
+    EXPECT_LT(diff, 1.0e-12 * nlocal) << "propagator=" << propagator << " nlocal=" << nlocal << " nb=" << nb << " grid=" << dist.nrproc()
                                       << "x" << dist.ncproc();
 }
 
 INSTANTIATE_TEST_SUITE_P(Layouts,
                          PropagatorDdlaTest,
-                         testing::Values(std::make_tuple(4, 1, false),
-                                         std::make_tuple(37, 4, false),
-                                         std::make_tuple(64, 8, false),
-                                         std::make_tuple(50, 16, true)));
+                         testing::Combine(testing::Values(4, 37, 64),
+                                          testing::Values(4),
+                                          testing::Values(false, true),
+                                          testing::Values(0, 1, 2)));
 
 int main(int argc, char** argv)
 {

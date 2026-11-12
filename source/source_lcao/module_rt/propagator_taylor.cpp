@@ -5,10 +5,12 @@
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_io/module_parameter/parameter.h"
 #include "propagator.h"
+#include "td_linalg.h"
 
 #include "source_base/global_function.h"
 
 #include <complex>
+#include <vector>
 #include <iostream>
 
 namespace module_rt
@@ -20,7 +22,8 @@ void Propagator::compute_propagator_taylor(const int nlocal,
                                            std::complex<double>* U_operator,
                                            std::ofstream& ofs_running,
                                            const int print_matrix,
-                                           const int tag) const
+                                           const int tag,
+                                           const DdlaContext* ddla) const
 {
     assert(this->ParaV->para_2d().size() > 0);
 
@@ -116,185 +119,169 @@ void Propagator::compute_propagator_taylor(const int nlocal,
     //->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     // invert Stmp
     int* ipiv = new int[this->ParaV->para_2d().size()];
-    // (3.1) compute ipiv
-    ScalapackConnector::getrf(nlocal, nlocal, Sinv, 1, 1, this->ParaV->para_2d().desc(), ipiv, &info);
-    int lwork = -1;
-    int liwotk = -1;
-    std::vector<std::complex<double>> work(1, 0);
-    std::vector<int> iwork(1, 0);
-    // (3.2) compute work
-    ScalapackConnector::getri(nlocal,
-                              Sinv,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              ipiv,
-                              work.data(),
-                              &lwork,
-                              iwork.data(),
-                              &liwotk,
-                              &info);
-    lwork = work[0].real();
-    work.resize(lwork, 0);
-    liwotk = iwork[0];
-    iwork.resize(liwotk, 0);
-    ScalapackConnector::getri(nlocal,
-                              Sinv,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              ipiv,
-                              work.data(),
-                              &lwork,
-                              iwork.data(),
-                              &liwotk,
-                              &info);
-    assert(0 == info);
-
     //  A_matrix = - idt S^-1 H ;
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nlocal,
-                             nlocal,
-                             beta,
-                             Sinv,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             Htmp,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             0.0,
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc());
+    if (ddla != nullptr)
+    {
+        // One LU solve S X = beta * H replaces the explicit inverse of S.
+        const std::complex<double> zero = {0.0, 0.0};
+        const char no_trans = 'N';
+        const char left = 'L';
+        td_geadd(ddla, no_trans, nlocal, nlocal, beta, Htmp, this->ParaV->para_2d().desc(), zero, U_operator,
+                 this->ParaV->para_2d().desc());
+        std::vector<int> ddla_ipiv;
+        td_ddla_getrf(*ddla, this->ParaV->para_2d(), Sinv, ddla_ipiv);
+        td_ddla_getrs(*ddla, this->ParaV->para_2d(), left, nlocal, Sinv, ddla_ipiv, U_operator,
+                      this->ParaV->para_2d().desc());
+    }
+    else
+    {
+        // (3.1) compute ipiv
+        ScalapackConnector::getrf(nlocal, nlocal, Sinv, 1, 1, this->ParaV->para_2d().desc(), ipiv, &info);
+        int lwork = -1;
+        int liwotk = -1;
+        std::vector<std::complex<double>> work(1, 0);
+        std::vector<int> iwork(1, 0);
+        // (3.2) compute work
+        ScalapackConnector::getri(nlocal,
+                                  Sinv,
+                                  1,
+                                  1,
+                                  this->ParaV->para_2d().desc(),
+                                  ipiv,
+                                  work.data(),
+                                  &lwork,
+                                  iwork.data(),
+                                  &liwotk,
+                                  &info);
+        lwork = work[0].real();
+        work.resize(lwork, 0);
+        liwotk = iwork[0];
+        iwork.resize(liwotk, 0);
+        ScalapackConnector::getri(nlocal,
+                                  Sinv,
+                                  1,
+                                  1,
+                                  this->ParaV->para_2d().desc(),
+                                  ipiv,
+                                  work.data(),
+                                  &lwork,
+                                  iwork.data(),
+                                  &liwotk,
+                                  &info);
+        assert(0 == info);
+
+        td_gemm(ddla,
+                'N',
+                'N',
+                nlocal,
+                nlocal,
+                nlocal,
+                beta,
+                Sinv,
+                this->ParaV->para_2d().desc(),
+                Htmp,
+                this->ParaV->para_2d().desc(),
+                0.0,
+                U_operator,
+                this->ParaV->para_2d().desc());
+    }
 
     //  rank2 = A^2 ;
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nlocal,
-                             nlocal,
-                             1.0,
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             0.0,
-                             rank2,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc());
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nlocal,
+            nlocal,
+            1.0,
+            U_operator,
+            this->ParaV->para_2d().desc(),
+            U_operator,
+            this->ParaV->para_2d().desc(),
+            0.0,
+            rank2,
+            this->ParaV->para_2d().desc());
 
     //  rank3 = A^3 ;
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nlocal,
-                             nlocal,
-                             1.0,
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             rank2,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             0.0,
-                             rank3,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc());
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nlocal,
+            nlocal,
+            1.0,
+            U_operator,
+            this->ParaV->para_2d().desc(),
+            rank2,
+            this->ParaV->para_2d().desc(),
+            0.0,
+            rank3,
+            this->ParaV->para_2d().desc());
 
     //  rank4 = A^4 ;
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nlocal,
-                             nlocal,
-                             1.0,
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             rank3,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             0.0,
-                             rank4,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc());
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nlocal,
+            nlocal,
+            1.0,
+            U_operator,
+            this->ParaV->para_2d().desc(),
+            rank3,
+            this->ParaV->para_2d().desc(),
+            0.0,
+            rank4,
+            this->ParaV->para_2d().desc());
 
     std::complex<double> p1 = {1.0, 0.0};
     std::complex<double> p2 = {1.0 / 2.0, 0.0};
     std::complex<double> p3 = {1.0 / 6.0, 0.0};
     std::complex<double> p4 = {1.0 / 24.0, 0.0};
 
-    ScalapackConnector::geadd('N',
-                              nlocal,
-                              nlocal,
-                              p1,
-                              rank0,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              p1,
-                              U_operator,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             p1,
+             rank0,
+             this->ParaV->para_2d().desc(),
+             p1,
+             U_operator,
+             this->ParaV->para_2d().desc());
 
-    ScalapackConnector::geadd('N',
-                              nlocal,
-                              nlocal,
-                              p2,
-                              rank2,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              p1,
-                              U_operator,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             p2,
+             rank2,
+             this->ParaV->para_2d().desc(),
+             p1,
+             U_operator,
+             this->ParaV->para_2d().desc());
 
-    ScalapackConnector::geadd('N',
-                              nlocal,
-                              nlocal,
-                              p3,
-                              rank3,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              p1,
-                              U_operator,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             p3,
+             rank3,
+             this->ParaV->para_2d().desc(),
+             p1,
+             U_operator,
+             this->ParaV->para_2d().desc());
 
-    ScalapackConnector::geadd('N',
-                              nlocal,
-                              nlocal,
-                              p4,
-                              rank4,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc(),
-                              p1,
-                              U_operator,
-                              1,
-                              1,
-                              this->ParaV->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             p4,
+             rank4,
+             this->ParaV->para_2d().desc(),
+             p1,
+             U_operator,
+             this->ParaV->para_2d().desc());
 
     if (print_matrix)
     {

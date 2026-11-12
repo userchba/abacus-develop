@@ -2,6 +2,9 @@
 #define ABACUS_SOURCE_LCAO_MODULE_RT_TD_LINALG_H
 
 #include <complex>
+#include <vector>
+
+class BlockCyclicDistribution;
 
 namespace module_rt
 {
@@ -37,6 +40,24 @@ void td_geadd(const DdlaContext* ddla,
               const std::complex<double>& beta,
               std::complex<double>* C,
               const int* descC);
+
+//! LU-factor the square matrix A of layout dist in place with LibDDLA.
+//! ipiv is resized and receives LibDDLA's row-distributed pivots.
+void td_ddla_getrf(const DdlaContext& ddla,
+                   const BlockCyclicDistribution& dist,
+                   std::complex<double>* A,
+                   std::vector<int>& ipiv);
+
+//! Solve A X = B (side 'L') or X A = B (side 'R') with the factors from
+//! td_ddla_getrf; B (n x nrhs or nrhs x n) is overwritten by X.
+void td_ddla_getrs(const DdlaContext& ddla,
+                   const BlockCyclicDistribution& dist,
+                   const char side,
+                   const int nrhs,
+                   std::complex<double>* A,
+                   const std::vector<int>& ipiv,
+                   std::complex<double>* B,
+                   const int* descB);
 #endif // __MPI
 
 } // namespace module_rt

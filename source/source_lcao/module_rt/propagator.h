@@ -137,11 +137,12 @@ class Propagator
     /**
      *  @brief compute propagator with LibDDLA on the grid bound to ddla
      *
-     * Supports the Crank-Nicolson method (ptype 0) only.
+     * Supports Crank-Nicolson (ptype 0), 4th-order Taylor (1) and ETRS (2).
      *
      * @param[in] nlocal number of orbitals
      * @param[in] Stmp overlap matrix
-     * @param[in] Htmp H(t+dt/2)
+     * @param[in] Htmp H(t+dt/2) or H(t+dt)
+     * @param[in] H_laststep H(t), used by ETRS
      * @param[in] ddla LibDDLA handle bound to ParaV's process grid
      * @param[in] print_matirx print internal matrix or not
      * @param[out] U_operator operator of propagator
@@ -149,6 +150,7 @@ class Propagator
     void compute_propagator_ddla(const int nlocal,
                                  const std::complex<double>* Stmp,
                                  const std::complex<double>* Htmp,
+                                 const std::complex<double>* H_laststep,
                                  std::complex<double>* U_operator,
                                  const DdlaContext& ddla,
                                  std::ofstream& ofs_running,
@@ -226,6 +228,7 @@ class Propagator
      * @param[in] Htmp H(t+dt/2) or H(t+dt)
      * @param[in] print_matirx print internal matrix or not
      * @param[in] tag a parametre different for 4th Taylor and ETRS
+     * @param[in] ddla LibDDLA context, or nullptr for ScaLAPACK
      * @param[out] U_operator operator of propagator
      */
     void compute_propagator_taylor(const int nlocal,
@@ -234,7 +237,8 @@ class Propagator
                                    std::complex<double>* U_operator,
                                    std::ofstream& ofs_running,
                                    const int print_matrix,
-                                   const int tag) const;
+                                   const int tag,
+                                   const DdlaContext* ddla) const;
 
     /**
      *  @brief compute propagator of method ETRS
@@ -244,6 +248,7 @@ class Propagator
      * @param[in] Htmp H(t+dt/2) or H(t+dt)
      * @param[in] H_laststep H(t)
      * @param[in] print_matirx print internal matrix or not
+     * @param[in] ddla LibDDLA context, or nullptr for ScaLAPACK
      * @param[out] U_operator operator of propagator
      */
     void compute_propagator_etrs(const int nlocal,
@@ -252,7 +257,8 @@ class Propagator
                                  const std::complex<double>* H_laststep,
                                  std::complex<double>* U_operator,
                                  std::ofstream& ofs_running,
-                                 const int print_matrix) const;
+                                 const int print_matrix,
+                                 const DdlaContext* ddla) const;
 #endif // __MPI
 };
 } // namespace module_rt

@@ -5,6 +5,7 @@
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_io/module_parameter/parameter.h"
 #include "propagator.h"
+#include "td_linalg.h"
 
 #include <complex>
 #include <iostream>
@@ -18,32 +19,28 @@ void Propagator::compute_propagator_etrs(const int nlocal,
                                          const std::complex<double>* H_laststep,
                                          std::complex<double>* U_operator,
                                          std::ofstream& ofs_running,
-                                         const int print_matrix) const
+                                         const int print_matrix,
+                                         const DdlaContext* ddla) const
 {
     std::vector<std::complex<double>> U1(this->ParaV->para_2d().size());
     std::vector<std::complex<double>> U2(this->ParaV->para_2d().size());
     int tag = 2;
-    compute_propagator_taylor(nlocal, Stmp, Htmp, U1.data(), ofs_running, print_matrix, tag);
-    compute_propagator_taylor(nlocal, Stmp, H_laststep, U2.data(), ofs_running, print_matrix, tag);
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nlocal,
-                             nlocal,
-                             1.0,
-                             U1.data(),
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             U2.data(),
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc(),
-                             0.0,
-                             U_operator,
-                             1,
-                             1,
-                             this->ParaV->para_2d().desc());
+    compute_propagator_taylor(nlocal, Stmp, Htmp, U1.data(), ofs_running, print_matrix, tag, ddla);
+    compute_propagator_taylor(nlocal, Stmp, H_laststep, U2.data(), ofs_running, print_matrix, tag, ddla);
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nlocal,
+            nlocal,
+            1.0,
+            U1.data(),
+            this->ParaV->para_2d().desc(),
+            U2.data(),
+            this->ParaV->para_2d().desc(),
+            0.0,
+            U_operator,
+            this->ParaV->para_2d().desc());
 }
 #endif // __MPI
 } // namespace module_rt

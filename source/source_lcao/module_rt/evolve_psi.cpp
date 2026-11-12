@@ -79,7 +79,7 @@ void evolve_psi(const int nband,
         Propagator prop(propagator, pv, PARAM.inp.td_dt);
         if (ddla != nullptr)
         {
-            prop.compute_propagator_ddla(nlocal, Stmp, Htmp, U_operator, *ddla, ofs_running, print_matrix);
+            prop.compute_propagator_ddla(nlocal, Stmp, Htmp, H_laststep, U_operator, *ddla, ofs_running, print_matrix);
         }
         else
         {
@@ -102,11 +102,11 @@ void evolve_psi(const int nband,
         /// @output psi_k
         if (use_td_moving_gauge)
         {
-            solve_propagation(pv, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, P_k, psi_k_laststep, psi_k);
+            solve_propagation(pv, ddla, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, P_k, psi_k_laststep, psi_k);
         }
         else
         {
-            solve_propagation(pv, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, psi_k_laststep, psi_k);
+            solve_propagation(pv, ddla, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, psi_k_laststep, psi_k);
         }
     }
 

@@ -65,7 +65,7 @@ addtest(
 
 addtest(
   TARGET MODULE_LCAO_tddft_propagator_test
-  LIBS parameter base device tddft_test_lib
+  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
   SOURCES propagator_test1.cpp
           propagator_test2.cpp
           propagator_test3.cpp
@@ -73,6 +73,7 @@ addtest(
           ../propagator_cn2.cpp
           ../propagator_taylor.cpp
           ../propagator_etrs.cpp
+          ${TDDFT_LINALG_SOURCES}
           ../../../source_basis/module_ao/parallel_orbitals.cpp)
 
 addtest(
@@ -136,6 +137,7 @@ if(ENABLE_DDLA)
             ../propagator_taylor.cpp
             ../propagator_etrs.cpp
             ../propagator_ddla.cpp
+            ../td_linalg.cpp
             ../ddla_context.cpp
             ../../../source_basis/module_ao/parallel_orbitals.cpp)
   addtest(

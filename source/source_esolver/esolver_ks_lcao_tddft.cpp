@@ -112,15 +112,18 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
     // Run before_all_runners in ESolver_KS_LCAO
     ESolver_KS_LCAO<std::complex<double>, TR>::before_all_runners(ucell, inp);
     this->pelec->pot->set_td_field_manager(td_field_manager_);
+    // LibDDLA context for TD linear algebra, or nullptr for the default backend.
+    const module_rt::DdlaContext* ddla = nullptr;
 #ifdef __DDLA
     if (inp.td_la_backend == "ddla")
     {
         ddla_ctx_.bind(this->pv.para_2d());
+        ddla = &ddla_ctx_;
     }
 #endif
 
     restart_step_ = inp.mdp.md_restart ? td_field_manager_->current_step() : 0;
-    td_p = new TD_info(&ucell, this->pv, this->orb_, *td_field_manager_);
+    td_p = new TD_info(&ucell, this->pv, this->orb_, *td_field_manager_, ddla);
     totstep += restart_step_;
 
     if (this->inp_->init_wfc == "file")
@@ -574,7 +577,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::iter_finish(UnitCell& ucell,
         }
         else
         {
-            module_dm::edm_tddft(this->pv, this->dmat, this->kv, static_cast<hamilt::Hamilt<std::complex<double>>*>(this->p_hamilt));
+            const module_rt::DdlaContext* ddla = td_p->ddla();
+            module_dm::edm_tddft(this->pv, ddla, this->dmat, this->kv, static_cast<hamilt::Hamilt<std::complex<double>>*>(this->p_hamilt));
         }
     }
 }

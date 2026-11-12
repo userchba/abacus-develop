@@ -5,9 +5,11 @@
 
 #ifdef __DDLA
 #include "ddla_context.h"
+#include "source_base/block_cyclic_distribution.h"
 
 #include <ddla/ddla.h>
 
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 #endif
@@ -111,6 +113,70 @@ void td_geadd(const DdlaContext* ddla,
     }
 #else
     ModuleBase::WARNING_QUIT("module_rt::td_geadd", "ABACUS is built without LibDDLA support!");
+#endif // __DDLA
+}
+
+void td_ddla_getrf(const DdlaContext& ddla,
+                   const BlockCyclicDistribution& dist,
+                   std::complex<double>* A,
+                   std::vector<int>& ipiv)
+{
+#ifdef __DDLA
+    const int n = dist.nrglb();
+    const std::size_t len_ipiv = static_cast<std::size_t>(dist.nrloc()) + static_cast<std::size_t>(dist.nb());
+    ipiv.assign(len_ipiv, 0);
+    int info = 0;
+    try
+    {
+        ddla::pgetrf<ddla::DdlaBackend::CPU>(ddla.handle(), n, n, A, 1, 1, dist.desc(), ipiv.data(), info);
+    }
+    catch (const std::exception& e)
+    {
+        const std::string message = std::string("LibDDLA pgetrf failed: ") + e.what();
+        ModuleBase::WARNING_QUIT("module_rt::td_ddla_getrf", message);
+    }
+    if (info != 0)
+    {
+        const std::string message = "LibDDLA pgetrf found a singular matrix, info = " + std::to_string(info);
+        ModuleBase::WARNING_QUIT("module_rt::td_ddla_getrf", message);
+    }
+#else
+    ModuleBase::WARNING_QUIT("module_rt::td_ddla_getrf", "ABACUS is built without LibDDLA support!");
+#endif // __DDLA
+}
+
+void td_ddla_getrs(const DdlaContext& ddla,
+                   const BlockCyclicDistribution& dist,
+                   const char side,
+                   const int nrhs,
+                   std::complex<double>* A,
+                   const std::vector<int>& ipiv,
+                   std::complex<double>* B,
+                   const int* descB)
+{
+#ifdef __DDLA
+    const int n = dist.nrglb();
+    const char no_trans = 'N';
+    try
+    {
+        ddla::pgetrs<ddla::DdlaBackend::CPU>(ddla.handle(),
+                                             side,
+                                             no_trans,
+                                             n,
+                                             nrhs,
+                                             A,
+                                             dist.desc(),
+                                             ipiv.data(),
+                                             B,
+                                             descB);
+    }
+    catch (const std::exception& e)
+    {
+        const std::string message = std::string("LibDDLA pgetrs failed: ") + e.what();
+        ModuleBase::WARNING_QUIT("module_rt::td_ddla_getrs", message);
+    }
+#else
+    ModuleBase::WARNING_QUIT("module_rt::td_ddla_getrs", "ABACUS is built without LibDDLA support!");
 #endif // __DDLA
 }
 #endif // __MPI

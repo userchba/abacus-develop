@@ -6,6 +6,7 @@
 #include "source_io/module_parameter/parameter.h"
 #include "td_folding.h"
 #include "td_info.h"
+#include "td_linalg.h"
 template <>
 void cal_foverlap_rt(ModuleBase::matrix& foverlap,
                      const module_dm::Setup_DM<std::complex<double>>& dmat,
@@ -20,6 +21,8 @@ void cal_foverlap_rt(ModuleBase::matrix& foverlap,
     assert(nlocal >= 0);
 
     TD_info* td_info = &td_state;
+    // LibDDLA context for the matrix algebra, or nullptr for ScaLAPACK.
+    const module_rt::DdlaContext* ddla = td_state.ddla();
     // get dS/dR_{x,y,z}
     std::vector<hamilt::HContainer<double>*> dsxr = td_info->get_grad_overlap();
     // allocate matrix
@@ -63,89 +66,93 @@ void cal_foverlap_rt(ModuleBase::matrix& foverlap,
         const std::complex<double> mone_complex = {-1.0, 0.0};
         const std::complex<double> zero_complex = {0.0, 0.0};
 
-        ScalapackConnector::getrf(nlocal, nlocal, Sinv.data(), one_int, one_int, pv.para_2d().desc(), ipiv.data(), &info);
-
-        int lwork = -1;
-        int liwork = -1;
-
-        // if lwork == -1, then the size of work is (at least) of length 1.
-        std::vector<std::complex<double>> work(1, 0);
-
-        // if liwork = -1, then the size of iwork is (at least) of length 1.
-        std::vector<int> iwork(1, 0);
-
-        ScalapackConnector::getri(nlocal,
-                                  Sinv.data(),
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc(),
-                                  ipiv.data(),
-                                  work.data(),
-                                  &lwork,
-                                  iwork.data(),
-                                  &liwork,
-                                  &info);
-
-        lwork = work[0].real();
-        work.resize(lwork, 0);
-        liwork = iwork[0];
-        iwork.resize(liwork, 0);
-
-        ScalapackConnector::getri(nlocal,
-                                  Sinv.data(),
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc(),
-                                  ipiv.data(),
-                                  work.data(),
-                                  &lwork,
-                                  iwork.data(),
-                                  &liwork,
-                                  &info);
-
         const char N_char = 'N';
         const char T_char = 'T';
         const char C_char = 'C';
 
-        ScalapackConnector::gemm(T_char,
-                                 C_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 tmp_dmk,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 Htmp.data(),
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp1.data(),
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
+        module_rt::td_gemm(ddla,
+                           T_char,
+                           C_char,
+                           nlocal,
+                           nlocal,
+                           nlocal,
+                           one_complex,
+                           tmp_dmk,
+                           pv.para_2d().desc(),
+                           Htmp.data(),
+                           pv.para_2d().desc(),
+                           zero_complex,
+                           tmp1.data(),
+                           pv.para_2d().desc());
 
-        ScalapackConnector::gemm(N_char,
-                                 N_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 tmp1.data(),
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 Sinv.data(),
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp2.data(),
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
+        // tmp2 = tmp1 * S^{-1}
+        if (ddla != nullptr)
+        {
+            const char right = 'R';
+            std::vector<int> ddla_ipiv;
+            BlasConnector::copy(nloc, tmp1.data(), inc, tmp2.data(), inc);
+            module_rt::td_ddla_getrf(*ddla, pv.para_2d(), Sinv.data(), ddla_ipiv);
+            module_rt::td_ddla_getrs(*ddla, pv.para_2d(), right, nlocal, Sinv.data(), ddla_ipiv, tmp2.data(),
+                                     pv.para_2d().desc());
+        }
+        else
+        {
+            ScalapackConnector::getrf(nlocal, nlocal, Sinv.data(), one_int, one_int, pv.para_2d().desc(), ipiv.data(), &info);
+
+            int lwork = -1;
+            int liwork = -1;
+
+            // if lwork == -1, then the size of work is (at least) of length 1.
+            std::vector<std::complex<double>> work(1, 0);
+
+            // if liwork = -1, then the size of iwork is (at least) of length 1.
+            std::vector<int> iwork(1, 0);
+
+            ScalapackConnector::getri(nlocal,
+                                      Sinv.data(),
+                                      one_int,
+                                      one_int,
+                                      pv.para_2d().desc(),
+                                      ipiv.data(),
+                                      work.data(),
+                                      &lwork,
+                                      iwork.data(),
+                                      &liwork,
+                                      &info);
+
+            lwork = work[0].real();
+            work.resize(lwork, 0);
+            liwork = iwork[0];
+            iwork.resize(liwork, 0);
+
+            ScalapackConnector::getri(nlocal,
+                                      Sinv.data(),
+                                      one_int,
+                                      one_int,
+                                      pv.para_2d().desc(),
+                                      ipiv.data(),
+                                      work.data(),
+                                      &lwork,
+                                      iwork.data(),
+                                      &liwork,
+                                      &info);
+
+            module_rt::td_gemm(ddla,
+                               N_char,
+                               N_char,
+                               nlocal,
+                               nlocal,
+                               nlocal,
+                               one_complex,
+                               tmp1.data(),
+                               pv.para_2d().desc(),
+                               Sinv.data(),
+                               pv.para_2d().desc(),
+                               zero_complex,
+                               tmp2.data(),
+                               pv.para_2d().desc());
+        }
+
         for (int dir = 0; dir < 3; dir++)
         {
             ModuleBase::GlobalFunc::ZEROS(dsxk.data(), nloc);
@@ -162,59 +169,46 @@ void cal_foverlap_rt(ModuleBase::matrix& foverlap,
                                            td_info->get_phase_hybrid(),
                                            td_info->endpoint_A(),
                                            electric_field_ry);
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     two_complex,
-                                     tmp2.data(),
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc(),
-                                     dsxk.data(),
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc(),
-                                     one_complex,
-                                     tmp_out[dir].data(),
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc());
+            module_rt::td_gemm(ddla,
+                               N_char,
+                               N_char,
+                               nlocal,
+                               nlocal,
+                               nlocal,
+                               two_complex,
+                               tmp2.data(),
+                               pv.para_2d().desc(),
+                               dsxk.data(),
+                               pv.para_2d().desc(),
+                               one_complex,
+                               tmp_out[dir].data(),
+                               pv.para_2d().desc());
 
-            ScalapackConnector::gemm(T_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     mone_complex,
-                                     tmp_dmk,
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc(),
-                                     pdsxk.data(),
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc(),
-                                     one_complex,
-                                     tmp3.data(),
-                                     one_int,
-                                     one_int,
-                                     pv.para_2d().desc());
+            module_rt::td_gemm(ddla,
+                               T_char,
+                               N_char,
+                               nlocal,
+                               nlocal,
+                               nlocal,
+                               mone_complex,
+                               tmp_dmk,
+                               pv.para_2d().desc(),
+                               pdsxk.data(),
+                               pv.para_2d().desc(),
+                               one_complex,
+                               tmp3.data(),
+                               pv.para_2d().desc());
 
-            ScalapackConnector::geadd(N_char,
-                                      nlocal,
-                                      nlocal,
-                                      one_complex,
-                                      tmp3.data(),
-                                      one_int,
-                                      one_int,
-                                      pv.para_2d().desc(),
-                                      one_complex,
-                                      tmp_out[dir].data(),
-                                      one_int,
-                                      one_int,
-                                      pv.para_2d().desc());
+            module_rt::td_geadd(ddla,
+                                N_char,
+                                nlocal,
+                                nlocal,
+                                one_complex,
+                                tmp3.data(),
+                                pv.para_2d().desc(),
+                                one_complex,
+                                tmp_out[dir].data(),
+                                pv.para_2d().desc());
         }
     }
     // std::string filename = "process_debug_" + std::to_string(GlobalV::MY_RANK) + ".txt";

@@ -7,11 +7,13 @@
 #include "source_base/module_device/memory_op.h"              // memory operations
 #include "source_base/module_external/lapack_connector.h"
 #include "source_base/module_external/scalapack_connector.h"
+#include "source_lcao/module_rt/td_linalg.h"
 
 namespace module_dm
 {
 // use the original formula (Hamiltonian matrix) to calculate energy density matrix
 void edm_tddft(Parallel_Orbitals& pv,
+                   const module_rt::DdlaContext* ddla,
                    Setup_DM<std::complex<double>>& dmat,
                    K_Vectors& kv,
                    hamilt::Hamilt<std::complex<double>>* p_hamilt)
@@ -68,150 +70,143 @@ void edm_tddft(Parallel_Orbitals& pv,
         int info = 0;
         const int one_int = 1;
 
-        ScalapackConnector::getrf(nlocal, nlocal, Sinv, one_int, one_int, pv.para_2d().desc(), ipiv.data(), &info);
-
-        int lwork = -1;
-        int liwork = -1;
-
-        // if lwork == -1, then the size of work is (at least) of length 1.
-        std::vector<std::complex<double>> work(1, 0);
-
-        // if liwork = -1, then the size of iwork is (at least) of length 1.
-        std::vector<int> iwork(1, 0);
-
-        ScalapackConnector::getri(nlocal,
-                                  Sinv,
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc(),
-                                  ipiv.data(),
-                                  work.data(),
-                                  &lwork,
-                                  iwork.data(),
-                                  &liwork,
-                                  &info);
-
-        lwork = work[0].real();
-        work.resize(lwork, 0);
-        liwork = iwork[0];
-        iwork.resize(liwork, 0);
-
-        ScalapackConnector::getri(nlocal,
-                                  Sinv,
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc(),
-                                  ipiv.data(),
-                                  work.data(),
-                                  &lwork,
-                                  iwork.data(),
-                                  &liwork,
-                                  &info);
-
         const char N_char = 'N';
         const char T_char = 'T';
         const std::complex<double> one_complex = {1.0, 0.0};
         const std::complex<double> zero_complex = {0.0, 0.0};
         const std::complex<double> half_complex = {0.5, 0.0};
 
-        // tmp1 = Htmp * Sinv
-        ScalapackConnector::gemm(N_char,
-                                 N_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 Htmp,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 Sinv,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp1,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
+        if (ddla != nullptr)
+        {
+            // One LU factorization of S and two solves replace the explicit inverse:
+            // tmp1 = Htmp * S^{-1} (X S = H) and tmp3 = S^{-1} * Htmp (S X = H).
+            const char right = 'R';
+            const char left = 'L';
+            std::vector<int> ddla_ipiv;
+            module_rt::td_ddla_getrf(*ddla, pv.para_2d(), Sinv, ddla_ipiv);
+            BlasConnector::copy(nloc, Htmp, inc, tmp1, inc);
+            module_rt::td_ddla_getrs(*ddla, pv.para_2d(), right, nlocal, Sinv, ddla_ipiv, tmp1, pv.para_2d().desc());
+            BlasConnector::copy(nloc, Htmp, inc, tmp3, inc);
+            module_rt::td_ddla_getrs(*ddla, pv.para_2d(), left, nlocal, Sinv, ddla_ipiv, tmp3, pv.para_2d().desc());
+        }
+        else
+        {
+            ScalapackConnector::getrf(nlocal, nlocal, Sinv, one_int, one_int, pv.para_2d().desc(), ipiv.data(), &info);
+
+            int lwork = -1;
+            int liwork = -1;
+
+            // if lwork == -1, then the size of work is (at least) of length 1.
+            std::vector<std::complex<double>> work(1, 0);
+
+            // if liwork = -1, then the size of iwork is (at least) of length 1.
+            std::vector<int> iwork(1, 0);
+
+            ScalapackConnector::getri(nlocal,
+                                      Sinv,
+                                      one_int,
+                                      one_int,
+                                      pv.para_2d().desc(),
+                                      ipiv.data(),
+                                      work.data(),
+                                      &lwork,
+                                      iwork.data(),
+                                      &liwork,
+                                      &info);
+
+            lwork = work[0].real();
+            work.resize(lwork, 0);
+            liwork = iwork[0];
+            iwork.resize(liwork, 0);
+
+            ScalapackConnector::getri(nlocal,
+                                      Sinv,
+                                      one_int,
+                                      one_int,
+                                      pv.para_2d().desc(),
+                                      ipiv.data(),
+                                      work.data(),
+                                      &lwork,
+                                      iwork.data(),
+                                      &liwork,
+                                      &info);
+
+            // tmp1 = Htmp * Sinv
+            module_rt::td_gemm(ddla,
+                               N_char,
+                               N_char,
+                               nlocal,
+                               nlocal,
+                               nlocal,
+                               one_complex,
+                               Htmp,
+                               pv.para_2d().desc(),
+                               Sinv,
+                               pv.para_2d().desc(),
+                               zero_complex,
+                               tmp1,
+                               pv.para_2d().desc());
+
+            // tmp3 = Sinv * Htmp
+            module_rt::td_gemm(ddla,
+                               N_char,
+                               N_char,
+                               nlocal,
+                               nlocal,
+                               nlocal,
+                               one_complex,
+                               Sinv,
+                               pv.para_2d().desc(),
+                               Htmp,
+                               pv.para_2d().desc(),
+                               zero_complex,
+                               tmp3,
+                               pv.para_2d().desc());
+        }
 
         // tmp2 = tmp1^T * tmp_dmk
-        ScalapackConnector::gemm(T_char,
-                                 N_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 tmp1,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 tmp_dmk,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp2,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
-
-        // tmp3 = Sinv * Htmp
-        ScalapackConnector::gemm(N_char,
-                                 N_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 Sinv,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 Htmp,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp3,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
+        module_rt::td_gemm(ddla,
+                           T_char,
+                           N_char,
+                           nlocal,
+                           nlocal,
+                           nlocal,
+                           one_complex,
+                           tmp1,
+                           pv.para_2d().desc(),
+                           tmp_dmk,
+                           pv.para_2d().desc(),
+                           zero_complex,
+                           tmp2,
+                           pv.para_2d().desc());
 
         // tmp4 = tmp_dmk * tmp3^T
-        ScalapackConnector::gemm(N_char,
-                                 T_char,
-                                 nlocal,
-                                 nlocal,
-                                 nlocal,
-                                 one_complex,
-                                 tmp_dmk,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 tmp3,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc(),
-                                 zero_complex,
-                                 tmp4,
-                                 one_int,
-                                 one_int,
-                                 pv.para_2d().desc());
+        module_rt::td_gemm(ddla,
+                           N_char,
+                           T_char,
+                           nlocal,
+                           nlocal,
+                           nlocal,
+                           one_complex,
+                           tmp_dmk,
+                           pv.para_2d().desc(),
+                           tmp3,
+                           pv.para_2d().desc(),
+                           zero_complex,
+                           tmp4,
+                           pv.para_2d().desc());
 
         // tmp4 = 0.5 * (tmp2 + tmp4)
-        ScalapackConnector::geadd(N_char,
-                                  nlocal,
-                                  nlocal,
-                                  half_complex,
-                                  tmp2,
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc(),
-                                  half_complex,
-                                  tmp4,
-                                  one_int,
-                                  one_int,
-                                  pv.para_2d().desc());
+        module_rt::td_geadd(ddla,
+                            N_char,
+                            nlocal,
+                            nlocal,
+                            half_complex,
+                            tmp2,
+                            pv.para_2d().desc(),
+                            half_complex,
+                            tmp4,
+                            pv.para_2d().desc());
 
         BlasConnector::copy(nloc, tmp4, inc, tmp_edmk.c, inc);
 

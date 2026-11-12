@@ -33,11 +33,11 @@ void Propagator::compute_propagator(const int nlocal,
 
     case 1:
         tag = 1;
-        compute_propagator_taylor(nlocal, Stmp, Htmp, U_operator, ofs_running, print_matrix, tag);
+        compute_propagator_taylor(nlocal, Stmp, Htmp, U_operator, ofs_running, print_matrix, tag, nullptr);
         break;
 
     case 2:
-        compute_propagator_etrs(nlocal, Stmp, Htmp, H_laststep, U_operator, ofs_running, print_matrix);
+        compute_propagator_etrs(nlocal, Stmp, Htmp, H_laststep, U_operator, ofs_running, print_matrix, nullptr);
         break;
 
     default:

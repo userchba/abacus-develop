@@ -26,19 +26,26 @@ namespace module_rt
 void Propagator::compute_propagator_ddla(const int nlocal,
                                          const std::complex<double>* Stmp,
                                          const std::complex<double>* Htmp,
+                                         const std::complex<double>* H_laststep,
                                          std::complex<double>* U_operator,
                                          const DdlaContext& ddla,
                                          std::ofstream& ofs_running,
                                          const int print_matrix) const
 {
+    const int taylor_tag = 1;
     switch (ptype)
     {
     case 0:
         compute_propagator_cn2_ddla(nlocal, Stmp, Htmp, U_operator, ddla, ofs_running, print_matrix);
         break;
+    case 1:
+        compute_propagator_taylor(nlocal, Stmp, Htmp, U_operator, ofs_running, print_matrix, taylor_tag, &ddla);
+        break;
+    case 2:
+        compute_propagator_etrs(nlocal, Stmp, Htmp, H_laststep, U_operator, ofs_running, print_matrix, &ddla);
+        break;
     default:
-        ModuleBase::WARNING_QUIT("Propagator::compute_propagator_ddla",
-                                 "td_la_backend ddla currently supports td_propagator 0 only!");
+        ModuleBase::WARNING_QUIT("Propagator::compute_propagator_ddla", "Method of RT-TDDFT propagator is wrong!");
         break;
     }
 }

@@ -2,6 +2,7 @@
 
 #include "../ddla_context.h"
 #include "../td_linalg.h"
+#include "source_base/module_external/scalapack_connector.h"
 #include "source_base/parallel_reduce.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
 
@@ -27,6 +28,10 @@
  *       one Crank-Nicolson step: H*psi, psi^H*(S psi) into the band x band
  *       Eij layout, psi*Cij, and the H/S half-step average, on uneven
  *       blocks, nband < nlocal and swapped grids.
+ *   - td_ddla_getrf + td_ddla_getrs
+ *     - side 'L' matches ScaLAPACK pzgesv for S X = B with B in the psi
+ *       (nlocal x nband) layout;
+ *     - side 'R' solves X S = H: the residual X S - H vanishes.
  */
 
 namespace
@@ -164,6 +169,71 @@ TEST_P(TdLinalgTest, GeaddMatchesScalapack)
     module_rt::td_geadd(&ddla, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ddla.data(),
                         dist.desc());
     EXPECT_LT(max_abs_diff_all_ranks(h_ref, h_ddla), 1.0e-15) << "geadd";
+}
+
+namespace
+{
+
+// S = I + scale * (R + R^H) / 2 stays well conditioned for scale < 1.
+std::vector<Complex> overlap_local(const BlockCyclicDistribution& dist, const int nlocal, const int seed)
+{
+    std::vector<Complex> local = fill_local(dist, nlocal, nlocal, seed);
+    const double scale = 0.2 / std::sqrt(static_cast<double>(nlocal));
+    for (int jl = 0; jl < dist.ncloc(); ++jl)
+    {
+        for (int il = 0; il < dist.nrloc(); ++il)
+        {
+            const int irglb = dist.irglb(il);
+            const int icglb = dist.icglb(jl);
+            const std::size_t idx = static_cast<std::size_t>(jl) * dist.nrloc() + il;
+            const Complex lower = std::conj(test_entry(seed, icglb, irglb));
+            local[idx] = 0.5 * scale * (local[idx] + lower);
+            if (irglb == icglb)
+            {
+                local[idx] += 1.0;
+            }
+        }
+    }
+    return local;
+}
+
+} // namespace
+
+TEST_P(TdLinalgTest, GetrsMatchesScalapack)
+{
+    const BlockCyclicDistribution& dist = pv.para_2d();
+    const std::vector<Complex> s = overlap_local(dist, nlocal, 5);
+    const std::vector<Complex> h = fill_local(dist, nlocal, nlocal, 6);
+    const std::vector<Complex> b = fill_local(dist, nlocal, nband, 7);
+    const Complex one(1.0, 0.0);
+    const Complex minus_one(-1.0, 0.0);
+    const char left = 'L';
+    const char right = 'R';
+
+    // Left solve S X = B, as in td_propagator 3, against ScaLAPACK pzgesv.
+    std::vector<Complex> s_ref = s;
+    std::vector<Complex> x_ref = b;
+    std::vector<int> ipiv_ref(static_cast<std::size_t>(dist.nrloc()) + dist.nb(), 0);
+    int info = 0;
+    ScalapackConnector::gesv(nlocal, nband, s_ref.data(), 1, 1, dist.desc(), ipiv_ref.data(), x_ref.data(), 1, 1,
+                             pv.desc_wfc, &info);
+    ASSERT_EQ(info, 0);
+    std::vector<Complex> s_lu = s;
+    std::vector<Complex> x_ddla = b;
+    std::vector<int> ipiv;
+    module_rt::td_ddla_getrf(ddla, dist, s_lu.data(), ipiv);
+    module_rt::td_ddla_getrs(ddla, dist, left, nband, s_lu.data(), ipiv, x_ddla.data(), pv.desc_wfc);
+    EXPECT_LT(max_abs_diff_all_ranks(x_ref, x_ddla), tol) << "S X = B";
+
+    // Right solve X S = H with the same factors; check the residual X S - H.
+    std::vector<Complex> x_right = h;
+    module_rt::td_ddla_getrs(ddla, dist, right, nlocal, s_lu.data(), ipiv, x_right.data(), dist.desc());
+    std::vector<Complex> residual = h;
+    const module_rt::DdlaContext* scalapack = nullptr;
+    module_rt::td_gemm(scalapack, 'N', 'N', nlocal, nlocal, nlocal, one, x_right.data(), dist.desc(), s.data(),
+                       dist.desc(), minus_one, residual.data(), dist.desc());
+    const std::vector<Complex> zeros(residual.size(), Complex(0.0, 0.0));
+    EXPECT_LT(max_abs_diff_all_ranks(residual, zeros), tol) << "X S = H";
 }
 
 INSTANTIATE_TEST_SUITE_P(Layouts,

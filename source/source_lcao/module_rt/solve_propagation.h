@@ -6,6 +6,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 #ifdef __MPI
 /**
 *  @brief solve propagation equation A@c(t+dt) = B@c(t)
@@ -20,6 +22,7 @@ namespace module_rt
 * @param[out] psi_k psi of this step
 */
 void solve_propagation(const Parallel_Orbitals* pv,
+                       const DdlaContext* ddla,
                         const int nband,
                         const int nlocal,
                         const double dt,
@@ -34,6 +37,7 @@ void solve_propagation(const Parallel_Orbitals* pv,
  * @param[in] P_k moving spatial gauge matrix
  */
 void solve_propagation(const Parallel_Orbitals* pv,
+                       const DdlaContext* ddla,
                        const int nband,
                        const int nlocal,
                        const double dt,
