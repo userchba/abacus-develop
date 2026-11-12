@@ -14,6 +14,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 void evolve_psi(const int nband,
                 const int nlocal,
                 const Parallel_Orbitals* pv,
@@ -26,6 +28,7 @@ void evolve_psi(const int nband,
                 const bool use_td_moving_gauge,
                 double* ekb,
                 int propagator,
+                const DdlaContext* ddla,
                 std::ofstream& ofs_running,
                 const int print_matrix,
                 const EijOutputInfo& output_info);

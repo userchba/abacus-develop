@@ -9,6 +9,7 @@ if(ENABLE_LCAO)
     norm_psi.cpp
     propagator.cpp
     propagator_cn2.cpp
+    propagator_ddla.cpp
     propagator_taylor.cpp
     propagator_etrs.cpp
     upsi.cpp

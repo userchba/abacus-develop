@@ -15,6 +15,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 //--------------------------------- Utility function ---------------------------------//
 #ifdef __MPI
 inline int globalIndex(int localindex, int nblk, int nprocs, int myproc)
@@ -132,6 +134,25 @@ class Propagator
                             std::ofstream& ofs_running,
                             const int print_matrix) const;
 
+    /**
+     *  @brief compute propagator with LibDDLA on the grid bound to ddla
+     *
+     * Supports the Crank-Nicolson method (ptype 0) only.
+     *
+     * @param[in] nlocal number of orbitals
+     * @param[in] Stmp overlap matrix
+     * @param[in] Htmp H(t+dt/2)
+     * @param[in] ddla LibDDLA handle bound to ParaV's process grid
+     * @param[in] print_matirx print internal matrix or not
+     * @param[out] U_operator operator of propagator
+     */
+    void compute_propagator_ddla(const int nlocal,
+                                 const std::complex<double>* Stmp,
+                                 const std::complex<double>* Htmp,
+                                 std::complex<double>* U_operator,
+                                 const DdlaContext& ddla,
+                                 std::ofstream& ofs_running,
+                                 const int print_matrix) const;
     template <typename Device>
     void compute_propagator_tensor(const int nlocal,
                                    const ct::Tensor& Stmp,
@@ -183,6 +204,20 @@ class Propagator
                                               std::ofstream& ofs_running,
                                               const int print_matrix) const;
 
+    /**
+     *  @brief compute the Crank-Nicolson propagator with LibDDLA
+     *
+     * Same result as compute_propagator_cn2, but U is obtained from one
+     * distributed LU solve (S + i*dt/4*H) U = (S - i*dt/4*H) instead of an
+     * explicit inverse followed by a matrix product.
+     */
+    void compute_propagator_cn2_ddla(const int nlocal,
+                                     const std::complex<double>* Stmp,
+                                     const std::complex<double>* Htmp,
+                                     std::complex<double>* U_operator,
+                                     const DdlaContext& ddla,
+                                     std::ofstream& ofs_running,
+                                     const int print_matrix) const;
     /**
      *  @brief compute propagator of method 4th Taylor
      *

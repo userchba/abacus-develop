@@ -31,6 +31,7 @@ void evolve_psi(const int nband,
                 const bool use_td_moving_gauge,
                 double* ekb,
                 int propagator,
+                const DdlaContext* ddla,
                 std::ofstream& ofs_running,
                 const int print_matrix,
                 const EijOutputInfo& output_info)
@@ -76,7 +77,14 @@ void evolve_psi(const int nband,
         /// @input Stmp, Htmp, print_matrix
         /// @output U_operator
         Propagator prop(propagator, pv, PARAM.inp.td_dt);
-        prop.compute_propagator(nlocal, Stmp, Htmp, H_laststep, U_operator, ofs_running, print_matrix);
+        if (ddla != nullptr)
+        {
+            prop.compute_propagator_ddla(nlocal, Stmp, Htmp, U_operator, *ddla, ofs_running, print_matrix);
+        }
+        else
+        {
+            prop.compute_propagator(nlocal, Stmp, Htmp, H_laststep, U_operator, ofs_running, print_matrix);
+        }
     }
 
     // (3)->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

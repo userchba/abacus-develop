@@ -418,6 +418,16 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
         this->td_mg_->update_DR(sR_template, &ucell, &this->pv, this->two_center_bundle_.overlap_orb.get());
     }
 
+    // LibDDLA handle for the propagation, or nullptr for the default backend.
+    const module_rt::DdlaContext* ddla = nullptr;
+#ifdef __DDLA
+    if (this->inp_->td_la_backend == "ddla")
+    {
+        ddla_ctx_.bind(this->pv.para_2d());
+        ddla = &ddla_ctx_;
+    }
+#endif
+
     if (this->inp_->init_wfc == "file")
     {
         if (istep >= restart_step_ + 1)
@@ -437,6 +447,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
                                                       this->inp_->propagator,
                                                       use_tensor,
                                                       use_lapack,
+                                                      ddla,
                                                       this->td_mg_,
                                                       &ucell,
                                                       this->kv.kvec_d,
@@ -461,6 +472,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
                                                   this->inp_->propagator,
                                                   use_tensor,
                                                   use_lapack,
+                                                  ddla,
                                                   this->td_mg_,
                                                   &ucell,
                                                   this->kv.kvec_d,

@@ -15,7 +15,7 @@ target_link_libraries(tddft_test_lib PRIVATE Threads::Threads GTest::gtest_main
 if(NOT ENABLE_CUBLASMP)
   addtest(
     TARGET MODULE_LCAO_tddft_evolve_psi_test
-    LIBS parameter base device tddft_test_lib
+    LIBS parameter base device tddft_test_lib $<$<BOOL:${ENABLE_DDLA}>:ddla::ddla>
     SOURCES test_evolve_psi.cpp
             ../evolve_psi.cpp
             ../middle_hamilt.cpp
@@ -27,6 +27,8 @@ if(NOT ENABLE_CUBLASMP)
             ../propagator_cn2.cpp
             ../propagator_taylor.cpp
             ../propagator_etrs.cpp
+            ../propagator_ddla.cpp
+            ../ddla_context.cpp
             ../../../source_basis/module_ao/parallel_orbitals.cpp
             ../../../source_io/module_energy/td_eij_io.cpp)
 endif()
@@ -120,17 +122,30 @@ if(ENABLE_DDLA)
     TARGET MODULE_LCAO_tddft_ddla_context_test
     LIBS parameter base device ddla::ddla
     SOURCES test_ddla_context.cpp ../ddla_context.cpp)
-  foreach(rank_count IN ITEMS 2 4 6)
-    add_test(
-      NAME MODULE_LCAO_tddft_ddla_context_test_np${rank_count}
-      COMMAND
-        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
-        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_LCAO_tddft_ddla_context_test>
-        ${MPIEXEC_POSTFLAGS}
-      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    set_tests_properties(
-      MODULE_LCAO_tddft_ddla_context_test_np${rank_count}
-      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
-                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  addtest(
+    TARGET MODULE_LCAO_tddft_propagator_ddla_test
+    LIBS parameter base device ddla::ddla
+    SOURCES test_propagator_ddla.cpp
+            ../propagator.cpp
+            ../propagator_cn2.cpp
+            ../propagator_taylor.cpp
+            ../propagator_etrs.cpp
+            ../propagator_ddla.cpp
+            ../ddla_context.cpp
+            ../../../source_basis/module_ao/parallel_orbitals.cpp)
+  foreach(ddla_test IN ITEMS MODULE_LCAO_tddft_ddla_context_test
+                             MODULE_LCAO_tddft_propagator_ddla_test)
+    foreach(rank_count IN ITEMS 2 4 6)
+      add_test(
+        NAME ${ddla_test}_np${rank_count}
+        COMMAND
+          ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+          ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${ddla_test}> ${MPIEXEC_POSTFLAGS}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+      set_tests_properties(
+        ${ddla_test}_np${rank_count}
+        PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                   PROCESSORS "${rank_count}" TIMEOUT 120)
+    endforeach()
   endforeach()
 endif()

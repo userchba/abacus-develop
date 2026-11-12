@@ -83,7 +83,7 @@ TEST_F(EvolvePsiTest, CpuUsesEndpointOverlap)
     std::array<Complex, 4> last_h = {{0.0, 0.0, 0.0, 0.0}};
     double energy = 0.0;
     module_rt::evolve_psi(1, 2, &pv, &hamiltonian, psi.data(), previous_psi.data(),
-                          last_h.data(), previous_s.data(), nullptr, false, &energy, 0, log, 0, output_info);
+                          last_h.data(), previous_s.data(), nullptr, false, &energy, 0, nullptr, log, 0, output_info);
     expect_endpoint_norm(psi.data());
     EXPECT_NEAR(energy, 0.0, 1e-12);
 }

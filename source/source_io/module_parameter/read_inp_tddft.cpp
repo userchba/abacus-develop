@@ -426,7 +426,7 @@ Only effective for `lin_solver=gmres`; ignored otherwise.)";
         item.type = "String";
         item.description = R"(Library used for the distributed matrix operations of LCAO RT-TDDFT propagation.
 * `default`: ScaLAPACK with `device=cpu`. With `device=gpu`, gathered single-device LAPACK, or cuBLASMp/cuSOLVERMp when `ks_solver` is `cusolvermp`.
-* `ddla`: LibDDLA on the same block-cyclic process grid. Requires ABACUS built with `-DENABLE_DDLA=ON`; currently available with `device=cpu` only.)";
+* `ddla`: LibDDLA on the same block-cyclic process grid. Requires ABACUS built with `-DENABLE_DDLA=ON`. Currently available with `device=cpu` and `td_propagator=0` only, and only the Crank-Nicolson propagator matrix is computed with LibDDLA.)";
         item.default_value = "default";
         item.unit = "";
         item.set_availability("basis_type==lcao and esolver_type==tddft");
@@ -443,6 +443,10 @@ Only effective for `lin_solver=gmres`; ignored otherwise.)";
             if (para.input.device == "gpu")
             {
                 ModuleBase::WARNING_QUIT("ReadInput", "td_la_backend ddla currently supports device cpu only.");
+            }
+            if (para.input.propagator != 0)
+            {
+                ModuleBase::WARNING_QUIT("ReadInput", "td_la_backend ddla currently supports td_propagator 0 only.");
             }
         };
         read_sync_string(input.td_la_backend);

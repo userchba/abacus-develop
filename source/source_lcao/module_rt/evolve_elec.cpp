@@ -31,6 +31,7 @@ void Evolve_elec<Device>::solve_psi(const std::vector<EijOutputInfo>& eij_output
                                     const int propagator,
                                     const bool use_tensor,
                                     const bool use_lapack,
+                                    const module_rt::DdlaContext* ddla,
                                     module_rt::TD_MovingGauge* td_mg,
                                     const UnitCell* ucell,
                                     const std::vector<ModuleBase::Vector3<double>>& kvec_d,
@@ -78,6 +79,7 @@ void Evolve_elec<Device>::solve_psi(const std::vector<EijOutputInfo>& eij_output
                        use_td_moving_gauge,
                        &(ekb(ik, 0)),
                        propagator,
+                       ddla,
                        ofs_running,
                        print_matrix,
                        eij_output[ik]);
