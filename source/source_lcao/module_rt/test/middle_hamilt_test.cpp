@@ -59,7 +59,7 @@ TEST(MiddleHamiltTest, testMiddleHamilt)
     }
 
     // Call the function
-    module_rt::half_Hmatrix(pv, nband, nlocal, Htmp, Stmp, Hlaststep, Slaststep, GlobalV::ofs_running, print_matrix);
+    module_rt::half_Hmatrix(pv, nullptr, nband, nlocal, Htmp, Stmp, Hlaststep, Slaststep, GlobalV::ofs_running, print_matrix);
 
     // Check the results
     EXPECT_NEAR(Htmp[0].real(), 1.0, doublethreshold);

@@ -1,7 +1,7 @@
 #include "upsi.h"
 
 #include "source_base/module_container/ATen/kernels/blas.h"
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_lcao/module_rt/td_linalg.h"
 #include "source_base/timer.h"
 
 #include <cassert>
@@ -12,6 +12,7 @@ namespace module_rt
 {
 #ifdef __MPI
 void upsi(const Parallel_Orbitals* pv,
+          const DdlaContext* ddla,
           const int nband,
           const int nlocal,
           const std::complex<double>* U_operator,
@@ -20,25 +21,20 @@ void upsi(const Parallel_Orbitals* pv,
           std::ofstream& ofs_running,
           const int print_matrix)
 {
-    ScalapackConnector::gemm('N',
-                             'N',
-                             nlocal,
-                             nband,
-                             nlocal,
-                             1.0,
-                             U_operator,
-                             1,
-                             1,
-                             pv->para_2d().desc(),
-                             psi_k_laststep,
-                             1,
-                             1,
-                             pv->desc_wfc,
-                             0.0,
-                             psi_k,
-                             1,
-                             1,
-                             pv->desc_wfc);
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nband,
+            nlocal,
+            1.0,
+            U_operator,
+            pv->para_2d().desc(),
+            psi_k_laststep,
+            pv->desc_wfc,
+            0.0,
+            psi_k,
+            pv->desc_wfc);
 
     if (print_matrix)
     {

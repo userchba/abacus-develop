@@ -3,7 +3,7 @@
 #include "source_base/global_variable.h"
 #include "source_base/module_container/ATen/kernels/blas.h"
 #include "source_base/module_device/memory_op.h" // memory operations
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_lcao/module_rt/td_linalg.h"
 #include "source_base/timer.h"
 
 #include <cassert>
@@ -15,6 +15,7 @@ namespace module_rt
 #ifdef __MPI
 
 void half_Hmatrix(const Parallel_Orbitals* pv,
+                  const DdlaContext* ddla,
                   const int nband,
                   const int nlocal,
                   std::complex<double>* Htmp,
@@ -55,8 +56,26 @@ void half_Hmatrix(const Parallel_Orbitals* pv,
 
     std::complex<double> alpha = {0.5, 0.0};
     std::complex<double> beta = {0.5, 0.0};
-    ScalapackConnector::geadd('N', nlocal, nlocal, alpha, H_laststep, 1, 1, pv->para_2d().desc(), beta, Htmp, 1, 1, pv->para_2d().desc());
-    ScalapackConnector::geadd('N', nlocal, nlocal, alpha, S_laststep, 1, 1, pv->para_2d().desc(), beta, Stmp, 1, 1, pv->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             alpha,
+             H_laststep,
+             pv->para_2d().desc(),
+             beta,
+             Htmp,
+             pv->para_2d().desc());
+    td_geadd(ddla,
+             'N',
+             nlocal,
+             nlocal,
+             alpha,
+             S_laststep,
+             pv->para_2d().desc(),
+             beta,
+             Stmp,
+             pv->para_2d().desc());
 
     if (print_matrix)
     {

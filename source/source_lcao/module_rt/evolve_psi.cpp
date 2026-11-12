@@ -67,7 +67,7 @@ void evolve_psi(const int nband,
     /// @output Htmp
     if (propagator != 2)
     {
-        half_Hmatrix(pv, nband, nlocal, Htmp, Stmp, H_laststep, S_laststep, ofs_running, print_matrix);
+        half_Hmatrix(pv, ddla, nband, nlocal, Htmp, Stmp, H_laststep, S_laststep, ofs_running, print_matrix);
     }
 
     // (2)->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -93,7 +93,7 @@ void evolve_psi(const int nband,
         /// @brief apply U_operator to the wave function of the previous step for new wave function
         /// @input U_operator, psi_k_laststep, print_matrix
         /// @output psi_k
-        upsi(pv, nband, nlocal, U_operator, psi_k_laststep, psi_k, ofs_running, print_matrix);
+        upsi(pv, ddla, nband, nlocal, U_operator, psi_k_laststep, psi_k, ofs_running, print_matrix);
     }
     else
     {
@@ -115,14 +115,14 @@ void evolve_psi(const int nband,
     /// @brief normalize psi_k
     /// @input S(t+dt), psi_not_norm, psi_k, print_matrix
     /// @output psi_k
-    norm_psi(pv, nband, nlocal, s_mat.p, psi_k, ofs_running, print_matrix);
+    norm_psi(pv, ddla, nband, nlocal, s_mat.p, psi_k, ofs_running, print_matrix);
 
     // (5)->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
     /// @brief compute ekb
     /// @input Htmp, psi_k
     /// @output ekb
-    compute_ekb(pv, nband, nlocal, Hold, psi_k, ekb, ofs_running, output_info);
+    compute_ekb(pv, ddla, nband, nlocal, Hold, psi_k, ekb, ofs_running, output_info);
 
     delete[] Stmp;
     delete[] Htmp;

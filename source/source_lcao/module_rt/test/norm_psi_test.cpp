@@ -65,7 +65,7 @@ TEST(NormPsiTest, testNormPsi)
     psi_k[11] = 1.0;
 
     // Call the function
-    module_rt::norm_psi(pv, nband, nlocal, Stmp, psi_k, GlobalV::ofs_running, print_matrix);
+    module_rt::norm_psi(pv, nullptr, nband, nlocal, Stmp, psi_k, GlobalV::ofs_running, print_matrix);
 
     // Check the results
     EXPECT_NEAR(psi_k[0].real(), 0.577350269189626, doublethreshold);
@@ -117,8 +117,8 @@ TEST(NormPsiTest, EndpointMetricDiffersFromPropagationMetric)
               + std::conj(psi[1]) * (endpoint[1]*psi[0] + endpoint[3]*psi[1])).real();
     };
     std::ofstream log;
-    module_rt::norm_psi(&pv, nband, nlocal, endpoint, right, log, 0);
-    module_rt::norm_psi(&pv, nband, nlocal, midpoint, wrong, log, 0);
+    module_rt::norm_psi(&pv, nullptr, nband, nlocal, endpoint, right, log, 0);
+    module_rt::norm_psi(&pv, nullptr, nband, nlocal, midpoint, wrong, log, 0);
     EXPECT_NEAR(norm(right), 1.0, 1e-12);
     EXPECT_GT(std::abs(norm(wrong)-1.0), 0.1);
 }

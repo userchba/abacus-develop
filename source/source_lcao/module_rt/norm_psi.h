@@ -14,6 +14,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 #ifdef __MPI
 /**
  *  @brief normalize the wave function
@@ -27,6 +29,7 @@ namespace module_rt
  * @param[out] psi_k psi of this step after normalization
  */
 void norm_psi(const Parallel_Orbitals* pv,
+              const DdlaContext* ddla,
               const int nband,
               const int nlocal,
               const std::complex<double>* Stmp,

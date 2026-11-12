@@ -15,6 +15,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 #ifdef __MPI
 /**
  *  @brief apply U_operator to the wave function of the previous step for new wave function
@@ -28,6 +30,7 @@ namespace module_rt
  * @param[out] psi_k psi of this step
  */
 void upsi(const Parallel_Orbitals* pv,
+          const DdlaContext* ddla,
           const int nband,
           const int nlocal,
           const std::complex<double>* U_operator,

@@ -871,6 +871,7 @@ OBJS_LCAO=evolve_elec.o\
       propagator.o\
       propagator_cn2.o\
       propagator_ddla.o\
+      td_linalg.o\
       propagator_taylor.o\
       propagator_etrs.o\
       td_folding.o\

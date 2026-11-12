@@ -14,6 +14,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 #ifdef __MPI
 /**
  *  @brief compute H(t+dt/2)
@@ -27,6 +29,7 @@ namespace module_rt
  * @param[out] Htmp H(t+dt/2)
  */
 void half_Hmatrix(const Parallel_Orbitals* pv,
+                  const DdlaContext* ddla,
                   const int nband,
                   const int nlocal,
                   std::complex<double>* Htmp,

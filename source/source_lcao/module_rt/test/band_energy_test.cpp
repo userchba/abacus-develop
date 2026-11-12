@@ -86,7 +86,7 @@ class BandEnergyTest : public testing::Test
 
 TEST_F(BandEnergyTest, ComplexEijScalapack)
 {
-    module_rt::compute_ekb(&pv, nband, nlocal, h.data<Complex>(), psi.data<Complex>(), energies.data<double>(), output, output_info);
+    module_rt::compute_ekb(&pv, nullptr, nband, nlocal, h.data<Complex>(), psi.data<Complex>(), energies.data<double>(), output, output_info);
     check_result();
 }
 

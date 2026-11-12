@@ -15,6 +15,8 @@
 
 namespace module_rt
 {
+class DdlaContext;
+
 using ModuleIO::EijOutputInfo;
 
 #ifdef __MPI
@@ -29,6 +31,7 @@ using ModuleIO::EijOutputInfo;
  * @param[out] ekb band energy
  */
 void compute_ekb(const Parallel_Orbitals* pv,
+                 const DdlaContext* ddla,
                  const int nband,
                  const int nlocal,
                  const std::complex<double>* Htmp,

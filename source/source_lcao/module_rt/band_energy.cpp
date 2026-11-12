@@ -4,6 +4,7 @@
 #include "source_base/module_container/ATen/kernels/blas.h"
 #include "source_base/module_device/memory_op.h"
 #include "source_base/module_external/scalapack_connector.h"
+#include "source_lcao/module_rt/td_linalg.h"
 
 #ifdef __CUBLASMP
 #include "kernels/cuda/band_energy_kernel.cuh"
@@ -50,6 +51,7 @@ inline int globalIndex(int localindex, int nblk, int nprocs, int myproc)
 }
 
 void compute_ekb(const Parallel_Orbitals* pv,
+                 const DdlaContext* ddla,
                  const int nband,
                  const int nlocal,
                  const std::complex<double>* Htmp,
@@ -66,11 +68,35 @@ void compute_ekb(const Parallel_Orbitals* pv,
     std::complex<double>* eij = new std::complex<double>[pv->para_2d().size()];
     ModuleBase::GlobalFunc::ZEROS(eij, pv->para_2d().size());
 
-    ScalapackConnector::
-        gemm('N', 'N', nlocal, nband, nlocal, 1.0, Htmp, 1, 1, pv->para_2d().desc(), psi_k, 1, 1, pv->desc_wfc, 0.0, tmp1, 1, 1, pv->desc_wfc);
+    td_gemm(ddla,
+            'N',
+            'N',
+            nlocal,
+            nband,
+            nlocal,
+            1.0,
+            Htmp,
+            pv->para_2d().desc(),
+            psi_k,
+            pv->desc_wfc,
+            0.0,
+            tmp1,
+            pv->desc_wfc);
 
-    ScalapackConnector::
-        gemm('C', 'N', nband, nband, nlocal, 1.0, psi_k, 1, 1, pv->desc_wfc, tmp1, 1, 1, pv->desc_wfc, 0.0, eij, 1, 1, pv->desc_Eij);
+    td_gemm(ddla,
+            'C',
+            'N',
+            nband,
+            nband,
+            nlocal,
+            1.0,
+            psi_k,
+            pv->desc_wfc,
+            tmp1,
+            pv->desc_wfc,
+            0.0,
+            eij,
+            pv->desc_Eij);
 
     if (output_info.threshold >= 0.0)
     {

@@ -63,7 +63,7 @@ TEST(UpsiTest, testUpsi3)
     }
 
     // Call the function
-    module_rt::upsi(pv, nband, nlocal, U_operator, psi_k_laststep, psi_k, GlobalV::ofs_running, print_matrix);
+    module_rt::upsi(pv, nullptr, nband, nlocal, U_operator, psi_k_laststep, psi_k, GlobalV::ofs_running, print_matrix);
 
     // Check the results
     for (int i = 0; i < nlocal; ++i)
