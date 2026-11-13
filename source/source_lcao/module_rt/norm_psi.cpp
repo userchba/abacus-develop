@@ -27,6 +27,47 @@ inline int globalIndex(int localindex, int nblk, int nprocs, int myproc)
     return gIndex;
 }
 
+void norm_psi_scaling(const Parallel_Orbitals* pv, const int nband, std::complex<double>* Cij)
+{
+    int naroc[2] = {0, 0}; // maximum number of row or column
+
+    for (int iprow = 0; iprow < pv->para_2d().nrproc(); ++iprow)
+    {
+        for (int ipcol = 0; ipcol < pv->para_2d().ncproc(); ++ipcol)
+        {
+            if (pv->para_2d().blacs_in_this_processor(iprow, ipcol))
+            {
+                naroc[0] = pv->para_2d().nrloc();
+                naroc[1] = pv->para_2d().ncloc();
+                for (int j = 0; j < naroc[1]; ++j)
+                {
+                    int igcol = globalIndex(j, pv->para_2d().nb(), pv->para_2d().ncproc(), ipcol);
+                    if (igcol >= nband)
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < naroc[0]; ++i)
+                    {
+                        int igrow = globalIndex(i, pv->para_2d().nb(), pv->para_2d().nrproc(), iprow);
+                        if (igrow >= nband)
+                        {
+                            continue;
+                        }
+                        if (igcol == igrow)
+                        {
+                            Cij[j * naroc[0] + i] = {1.0 / sqrt(Cij[j * naroc[0] + i].real()), 0.0};
+                        }
+                        else
+                        {
+                            Cij[j * naroc[0] + i] = {0.0, 0.0};
+                        }
+                    }
+                }
+            }
+        } // loop ipcol
+    } // loop iprow
+}
+
 void norm_psi(const Parallel_Orbitals* pv,
               const DdlaContext* ddla,
               const int nband,
@@ -99,43 +140,7 @@ void norm_psi(const Parallel_Orbitals* pv,
         ofs_running << std::endl;
     }
 
-    int naroc[2] = {0, 0}; // maximum number of row or column
-
-    for (int iprow = 0; iprow < pv->para_2d().nrproc(); ++iprow)
-    {
-        for (int ipcol = 0; ipcol < pv->para_2d().ncproc(); ++ipcol)
-        {
-            if (pv->para_2d().blacs_in_this_processor(iprow, ipcol))
-            {
-                naroc[0] = pv->para_2d().nrloc();
-                naroc[1] = pv->para_2d().ncloc();
-                for (int j = 0; j < naroc[1]; ++j)
-                {
-                    int igcol = globalIndex(j, pv->para_2d().nb(), pv->para_2d().ncproc(), ipcol);
-                    if (igcol >= nband)
-                    {
-                        continue;
-                    }
-                    for (int i = 0; i < naroc[0]; ++i)
-                    {
-                        int igrow = globalIndex(i, pv->para_2d().nb(), pv->para_2d().nrproc(), iprow);
-                        if (igrow >= nband)
-                        {
-                            continue;
-                        }
-                        if (igcol == igrow)
-                        {
-                            Cij[j * naroc[0] + i] = {1.0 / sqrt(Cij[j * naroc[0] + i].real()), 0.0};
-                        }
-                        else
-                        {
-                            Cij[j * naroc[0] + i] = {0.0, 0.0};
-                        }
-                    }
-                }
-            }
-        } // loop ipcol
-    } // loop iprow
+    norm_psi_scaling(pv, nband, Cij);
 
     BlasConnector::copy(pv->nloc_wfc, psi_k, 1, tmp1, 1);
 

@@ -865,6 +865,7 @@ OBJS_LCAO=evolve_elec.o\
       force_rt_overlap.o\
       td_moving_gauge.o\
       evolve_psi.o\
+      evolve_psi_ddla.o\
       band_energy.o\
       middle_hamilt.o\
       norm_psi.o\

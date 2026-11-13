@@ -50,6 +50,61 @@ inline int globalIndex(int localindex, int nblk, int nprocs, int myproc)
     return gIndex;
 }
 
+void ekb_from_eij(const Parallel_Orbitals* pv,
+                  const int nband,
+                  std::complex<double>* eij,
+                  double* ekb,
+                  std::ofstream& ofs_running,
+                  const EijOutputInfo& output_info)
+{
+    if (output_info.threshold >= 0.0)
+    {
+        gather_eij(*pv, nband, eij, output_info, ofs_running);
+    }
+
+    int info = 0;
+    int naroc[2] = {0, 0};
+
+    assert(nband > 0);
+    double* eii = new double[nband];
+    ModuleBase::GlobalFunc::ZEROS(eii, nband);
+
+    for (int iprow = 0; iprow < pv->para_2d().nrproc(); ++iprow)
+    {
+        for (int ipcol = 0; ipcol < pv->para_2d().ncproc(); ++ipcol)
+        {
+            if (pv->para_2d().blacs_in_this_processor(iprow, ipcol))
+            {
+                naroc[0] = pv->para_2d().nrloc();
+                naroc[1] = pv->para_2d().ncloc();
+                for (int j = 0; j < naroc[1]; ++j)
+                {
+                    int igcol = globalIndex(j, pv->para_2d().nb(), pv->para_2d().ncproc(), ipcol);
+                    if (igcol >= nband)
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < naroc[0]; ++i)
+                    {
+                        int igrow = globalIndex(i, pv->para_2d().nb(), pv->para_2d().nrproc(), iprow);
+                        if (igrow >= nband)
+                        {
+                            continue;
+                        }
+                        if (igcol == igrow)
+                        {
+                            eii[igcol] = eij[j * naroc[0] + i].real();
+                        }
+                    }
+                }
+            }
+        } // loop ipcol
+    } // loop iprow
+    info = MPI_Allreduce(eii, ekb, nband, MPI_DOUBLE, MPI_SUM, pv->para_2d().comm());
+
+    delete[] eii;
+}
+
 void compute_ekb(const Parallel_Orbitals* pv,
                  const DdlaContext* ddla,
                  const int nband,
@@ -98,54 +153,10 @@ void compute_ekb(const Parallel_Orbitals* pv,
             eij,
             pv->desc_Eij);
 
-    if (output_info.threshold >= 0.0)
-    {
-        gather_eij(*pv, nband, eij, output_info, ofs_running);
-    }
-
-    int info = 0;
-    int naroc[2] = {0, 0};
-
-    assert(nband > 0);
-    double* eii = new double[nband];
-    ModuleBase::GlobalFunc::ZEROS(eii, nband);
-
-    for (int iprow = 0; iprow < pv->para_2d().nrproc(); ++iprow)
-    {
-        for (int ipcol = 0; ipcol < pv->para_2d().ncproc(); ++ipcol)
-        {
-            if (pv->para_2d().blacs_in_this_processor(iprow, ipcol))
-            {
-                naroc[0] = pv->para_2d().nrloc();
-                naroc[1] = pv->para_2d().ncloc();
-                for (int j = 0; j < naroc[1]; ++j)
-                {
-                    int igcol = globalIndex(j, pv->para_2d().nb(), pv->para_2d().ncproc(), ipcol);
-                    if (igcol >= nband)
-                    {
-                        continue;
-                    }
-                    for (int i = 0; i < naroc[0]; ++i)
-                    {
-                        int igrow = globalIndex(i, pv->para_2d().nb(), pv->para_2d().nrproc(), iprow);
-                        if (igrow >= nband)
-                        {
-                            continue;
-                        }
-                        if (igcol == igrow)
-                        {
-                            eii[igcol] = eij[j * naroc[0] + i].real();
-                        }
-                    }
-                }
-            }
-        } // loop ipcol
-    } // loop iprow
-    info = MPI_Allreduce(eii, ekb, nband, MPI_DOUBLE, MPI_SUM, pv->para_2d().comm());
+    ekb_from_eij(pv, nband, eij, ekb, ofs_running, output_info);
 
     delete[] tmp1;
     delete[] eij;
-    delete[] eii;
 }
 
 void compute_ekb_tensor(const Parallel_Orbitals* pv,

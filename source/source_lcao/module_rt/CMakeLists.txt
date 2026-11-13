@@ -4,6 +4,7 @@ if(ENABLE_LCAO)
     objects
     evolve_elec.cpp
     evolve_psi.cpp
+    evolve_psi_ddla.cpp
     band_energy.cpp
     middle_hamilt.cpp
     norm_psi.cpp

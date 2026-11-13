@@ -21,6 +21,24 @@ using ModuleIO::EijOutputInfo;
 
 #ifdef __MPI
 /**
+ *  @brief extract the band energies from Eij = psi^H H psi
+ *
+ * Prints Eij when output_info.threshold is not negative, then collects the
+ * diagonal of the distributed Eij into ekb on every rank.
+ *
+ * @param[in] pv information of parallel
+ * @param[in] nband number of bands
+ * @param[in] eij local block in the Eij layout (leading dimension nrloc)
+ * @param[out] ekb band energy
+ */
+void ekb_from_eij(const Parallel_Orbitals* pv,
+                  const int nband,
+                  std::complex<double>* eij,
+                  double* ekb,
+                  std::ofstream& ofs_running,
+                  const EijOutputInfo& output_info);
+
+/**
  *  @brief compute band energy ekb <psi_i|H|psi_i>
  *
  * @param[in] pv information of parallel

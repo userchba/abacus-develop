@@ -6,11 +6,10 @@
 #ifdef __DDLA
 #include "ddla_context.h"
 #include "source_base/block_cyclic_distribution.h"
-#include "source_base/module_external/blacs_connector.h"
+#include "td_ddla_device.h"
 
 #include <ddla/ddla.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 #include <string>
@@ -23,59 +22,9 @@ namespace module_rt
 namespace
 {
 #if DDLA_HAS_GPU
-// Number of locally stored elements (leading dimension x local columns) of
-// the block-cyclic matrix described by desc on this rank; zero when the rank
-// owns no row or no column, where the leading dimension is only a placeholder.
-std::size_t local_size(const int* desc)
-{
-    int nprow = 0;
-    int npcol = 0;
-    int myrow = 0;
-    int mycol = 0;
-    Cblacs_gridinfo(desc[1], &nprow, &npcol, &myrow, &mycol);
-    const int nrow = numroc_(&desc[2], &desc[4], &myrow, &desc[6], &nprow);
-    const int ncol = numroc_(&desc[3], &desc[5], &mycol, &desc[7], &npcol);
-    if (nrow <= 0 || ncol <= 0)
-    {
-        return 0;
-    }
-    return static_cast<std::size_t>(desc[8]) * static_cast<std::size_t>(ncol);
-}
-
-using DeviceMatrix = ddla::vector<std::complex<double>>;
-
-// Copy the local block of a host matrix to the handle's GPU.
-DeviceMatrix to_device(const ddla::DdlaHandle_t& handle, const std::complex<double>* host, const int* desc)
-{
-    const std::size_t count = local_size(desc);
-    // Keep one element on ranks without local data so that LibDDLA always gets a valid device pointer.
-    const std::size_t capacity = std::max<std::size_t>(count, 1);
-    DeviceMatrix device(handle, capacity);
-    const ddla::ddlaStatus_t status = ddla::ddlaMemcpy(handle, device.data(), host, count * sizeof(std::complex<double>));
-    if (status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS)
-    {
-        const std::string message = "host-to-device copy of " + std::to_string(count) + " elements failed with status "
-                                    + std::to_string(static_cast<int>(status));
-        throw std::runtime_error(message);
-    }
-    return device;
-}
-
-// Copy the local block of a GPU matrix back to host memory and wait for it.
-void to_host(const ddla::DdlaHandle_t& handle, std::complex<double>* host, const DeviceMatrix& device, const int* desc)
-{
-    const std::size_t count = local_size(desc);
-    const ddla::ddlaStatus_t copy_status
-        = ddla::ddlaMemcpy(handle, host, device.data(), count * sizeof(std::complex<double>));
-    const ddla::ddlaStatus_t sync_status = ddla::ddlaSynchronize(handle);
-    if (copy_status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS || sync_status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS)
-    {
-        const std::string message = "device-to-host copy of " + std::to_string(count) + " elements failed with status "
-                                    + std::to_string(static_cast<int>(copy_status)) + "/"
-                                    + std::to_string(static_cast<int>(sync_status));
-        throw std::runtime_error(message);
-    }
-}
+using ddla_device::DeviceMatrix;
+using ddla_device::to_device;
+using ddla_device::to_host;
 #endif // DDLA_HAS_GPU
 
 void quit_on_ddla_error(const char* where, const std::exception& e)

@@ -1,6 +1,7 @@
 #include "evolve_psi.h"
 
 #include "band_energy.h"
+#include "evolve_psi_ddla.h"
 #include "gather_mat.h"
 #include "middle_hamilt.h"
 #include "norm_psi.h"
@@ -44,6 +45,30 @@ void evolve_psi(const int nband,
     hamilt::MatrixBlock<std::complex<double>> h_mat;
     hamilt::MatrixBlock<std::complex<double>> s_mat;
     p_hamilt->matrix(h_mat, s_mat);
+    const double td_dt = PARAM.inp.td_dt;
+
+    // With a GPU LibDDLA context, a Crank-Nicolson step keeps every matrix on the device.
+    const bool on_device = print_matrix == 0 && evolve_psi_ddla_device_available(ddla, propagator);
+    if (on_device)
+    {
+        evolve_psi_ddla_device(nband,
+                               nlocal,
+                               pv,
+                               *ddla,
+                               td_dt,
+                               h_mat.p,
+                               s_mat.p,
+                               psi_k_laststep,
+                               H_laststep,
+                               S_laststep,
+                               psi_k,
+                               ekb,
+                               ofs_running,
+                               output_info);
+        time_t time_end_device = time(nullptr);
+        ModuleBase::GlobalFunc::OUT_TIME("evolve_psi", time_start, time_end_device);
+        return;
+    }
 
     std::complex<double>* Stmp = new std::complex<double>[pv->para_2d().size()];
     ModuleBase::GlobalFunc::ZEROS(Stmp, pv->para_2d().size());
@@ -76,7 +101,7 @@ void evolve_psi(const int nband,
         /// @brief compute U_operator
         /// @input Stmp, Htmp, print_matrix
         /// @output U_operator
-        Propagator prop(propagator, pv, PARAM.inp.td_dt);
+        Propagator prop(propagator, pv, td_dt);
         if (ddla != nullptr)
         {
             prop.compute_propagator_ddla(nlocal, Stmp, Htmp, H_laststep, U_operator, *ddla, ofs_running, print_matrix);
@@ -102,11 +127,11 @@ void evolve_psi(const int nband,
         /// @output psi_k
         if (use_td_moving_gauge)
         {
-            solve_propagation(pv, ddla, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, P_k, psi_k_laststep, psi_k);
+            solve_propagation(pv, ddla, nband, nlocal, td_dt, Stmp, Htmp, P_k, psi_k_laststep, psi_k);
         }
         else
         {
-            solve_propagation(pv, ddla, nband, nlocal, PARAM.inp.td_dt, Stmp, Htmp, psi_k_laststep, psi_k);
+            solve_propagation(pv, ddla, nband, nlocal, td_dt, Stmp, Htmp, psi_k_laststep, psi_k);
         }
     }
 

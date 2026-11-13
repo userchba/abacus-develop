@@ -23,6 +23,7 @@ if(NOT ENABLE_CUBLASMP)
     LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
     SOURCES test_evolve_psi.cpp
             ../evolve_psi.cpp
+            ../evolve_psi_ddla.cpp
             ../middle_hamilt.cpp
             ../norm_psi.cpp
             ../band_energy.cpp
@@ -145,9 +146,30 @@ if(ENABLE_DDLA)
     LIBS parameter base device ddla::ddla
     SOURCES test_td_linalg.cpp ../td_linalg.cpp ../ddla_context.cpp
             ../../../source_basis/module_ao/parallel_orbitals.cpp)
+  addtest(
+    TARGET MODULE_LCAO_tddft_evolve_psi_ddla_test
+    LIBS parameter base device ddla::ddla
+    SOURCES test_evolve_psi_ddla.cpp
+            ../evolve_psi.cpp
+            ../evolve_psi_ddla.cpp
+            ../middle_hamilt.cpp
+            ../norm_psi.cpp
+            ../band_energy.cpp
+            ../upsi.cpp
+            ../solve_propagation.cpp
+            ../propagator.cpp
+            ../propagator_cn2.cpp
+            ../propagator_taylor.cpp
+            ../propagator_etrs.cpp
+            ../propagator_ddla.cpp
+            ../td_linalg.cpp
+            ../ddla_context.cpp
+            ../../../source_basis/module_ao/parallel_orbitals.cpp
+            ../../../source_io/module_energy/td_eij_io.cpp)
   foreach(ddla_test IN ITEMS MODULE_LCAO_tddft_ddla_context_test
                              MODULE_LCAO_tddft_propagator_ddla_test
-                             MODULE_LCAO_tddft_td_linalg_test)
+                             MODULE_LCAO_tddft_td_linalg_test
+                             MODULE_LCAO_tddft_evolve_psi_ddla_test)
     foreach(rank_count IN ITEMS 2 4 6)
       add_test(
         NAME ${ddla_test}_np${rank_count}

@@ -18,6 +18,19 @@ class DdlaContext;
 
 #ifdef __MPI
 /**
+ *  @brief turn the band overlap psi^H S psi into the normalization factors
+ *
+ * Within the leading nband x nband block of the local Eij-layout matrix,
+ * replace each diagonal element by 1 / sqrt(Re(diagonal)) and each
+ * off-diagonal element by zero.
+ *
+ * @param[in] pv information of parallel
+ * @param[in] nband number of bands
+ * @param[in,out] Cij local block in the Eij layout (leading dimension nrloc)
+ */
+void norm_psi_scaling(const Parallel_Orbitals* pv, const int nband, std::complex<double>* Cij);
+
+/**
  *  @brief normalize the wave function
  *
  * @param[in] pv information of parallel
