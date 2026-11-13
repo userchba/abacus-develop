@@ -10,6 +10,10 @@ namespace module_rt
 {
 class DdlaContext;
 
+// Distributed linear algebra for LCAO RT-TDDFT on host matrices. With a GPU
+// LibDDLA context, each call copies the rank's local blocks to its GPU, runs
+// there and copies the result back.
+
 #ifdef __MPI
 //! C = alpha * op(A) * op(B) + beta * C on whole block-cyclic matrices.
 //! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK (pzgemm).

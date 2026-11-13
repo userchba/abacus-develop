@@ -25,7 +25,8 @@
  * - Tested functions
  *   - DdlaContext::bind / release / handle
  *     - binding twice to the same BLACS grid keeps one handle;
- *     - release unbinds and a later bind creates a new handle.
+ *     - release unbinds and a later bind creates a new handle;
+ *     - a GPU handle is bound when LibDDLA has GPU support.
  *   - LibDDLA pgemm on the bound handle
  *     - matches ScaLAPACK pzgemm on ABACUS block-cyclic layouts, for
  *       op(A) = A and A^H, uneven block counts, and swapped grids.
@@ -88,6 +89,7 @@ class DdlaContextTest : public testing::Test
 {
 };
 
+#if DDLA_HAS_CPU
 TEST_F(DdlaContextTest, BindReusesHandleOnSameGrid)
 {
     BlockCyclicDistribution dist;
@@ -98,23 +100,50 @@ TEST_F(DdlaContextTest, BindReusesHandleOnSameGrid)
 
     module_rt::DdlaContext ctx;
     EXPECT_FALSE(ctx.is_bound());
-    ctx.bind(dist);
+    ctx.bind(dist, false);
     ASSERT_TRUE(ctx.is_bound());
     EXPECT_EQ(ctx.ictxt(), dist.ictxt());
     const ddla::DdlaHandle_t first = ctx.handle();
 
-    ctx.bind(dist);
+    ctx.bind(dist, false);
     EXPECT_EQ(ctx.handle(), first);
 
     ctx.release();
     EXPECT_FALSE(ctx.is_bound());
     EXPECT_EQ(ctx.ictxt(), -1);
 
-    ctx.bind(dist);
+    ctx.bind(dist, false);
     EXPECT_TRUE(ctx.is_bound());
     EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::CPU);
 }
 
+#endif // DDLA_HAS_CPU
+
+#if DDLA_HAS_GPU
+TEST_F(DdlaContextTest, BindsGpuHandle)
+{
+    BlockCyclicDistribution dist;
+    const int n = 20;
+    const int nb = 4;
+    const bool swap_grid = false;
+    dist.init(n, n, nb, MPI_COMM_WORLD, swap_grid);
+
+    module_rt::DdlaContext ctx;
+    ctx.bind(dist, true);
+    ASSERT_TRUE(ctx.is_bound());
+    EXPECT_TRUE(ctx.on_gpu());
+    EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::GPU);
+
+#if DDLA_HAS_CPU
+    // Switching the backend on the same grid replaces the handle.
+    ctx.bind(dist, false);
+    EXPECT_FALSE(ctx.on_gpu());
+    EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::CPU);
+#endif // DDLA_HAS_CPU
+}
+#endif // DDLA_HAS_GPU
+
+#if DDLA_HAS_CPU
 // Parameters: global order, block size, conjugate-transpose A, swap grid.
 class DdlaContextPgemmTest : public testing::TestWithParam<std::tuple<int, int, bool, bool>>
 {
@@ -130,7 +159,7 @@ TEST_P(DdlaContextPgemmTest, PgemmMatchesScalapack)
     BlockCyclicDistribution dist;
     dist.init(n, n, nb, MPI_COMM_WORLD, swap_grid);
     module_rt::DdlaContext ctx;
-    ctx.bind(dist);
+    ctx.bind(dist, false);
 
     const std::vector<std::complex<double>> a = fill_local(dist, 1);
     const std::vector<std::complex<double>> b = fill_local(dist, 2);
@@ -188,6 +217,8 @@ INSTANTIATE_TEST_SUITE_P(Layouts,
                                          std::make_tuple(64, 8, true, false),
                                          std::make_tuple(50, 16, false, true),
                                          std::make_tuple(50, 16, true, true)));
+
+#endif // DDLA_HAS_CPU
 
 int main(int argc, char** argv)
 {

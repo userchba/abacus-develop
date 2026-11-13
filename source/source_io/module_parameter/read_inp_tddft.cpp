@@ -426,7 +426,7 @@ Only effective for `lin_solver=gmres`; ignored otherwise.)";
         item.type = "String";
         item.description = R"(Library used for the distributed matrix operations of LCAO RT-TDDFT propagation.
 * `default`: ScaLAPACK with `device=cpu`. With `device=gpu`, gathered single-device LAPACK, or cuBLASMp/cuSOLVERMp when `ks_solver` is `cusolvermp`.
-* `ddla`: LibDDLA on the same block-cyclic process grid. Requires ABACUS built with `-DENABLE_DDLA=ON`. Currently available with `device=cpu` only.)";
+* `ddla`: LibDDLA on the same block-cyclic process grid. Requires ABACUS built with `-DENABLE_DDLA=ON`. With `device=gpu`, LibDDLA must be built with GPU support; each rank's local blocks are copied to its GPU for every operation, and `kpar` must be 1.)";
         item.default_value = "default";
         item.unit = "";
         item.set_availability("basis_type==lcao and esolver_type==tddft");
@@ -440,9 +440,9 @@ Only effective for `lin_solver=gmres`; ignored otherwise.)";
                                      "td_la_backend is set to ddla, but ABACUS is not built with LibDDLA support.\n"
                                      " Please rebuild ABACUS with -DENABLE_DDLA=ON or set td_la_backend to default.");
 #endif
-            if (para.input.device == "gpu")
+            if (para.input.device == "gpu" && para.input.kpar > 1)
             {
-                ModuleBase::WARNING_QUIT("ReadInput", "td_la_backend ddla currently supports device cpu only.");
+                ModuleBase::WARNING_QUIT("ReadInput", "td_la_backend ddla with device gpu currently requires kpar 1.");
             }
         };
         read_sync_string(input.td_la_backend);

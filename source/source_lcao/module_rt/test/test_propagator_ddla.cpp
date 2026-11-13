@@ -27,7 +27,7 @@
  *   - Propagator::compute_propagator_ddla (td_propagator 0, 1, 2)
  *     - matches the ScaLAPACK Crank-Nicolson, 4th-order Taylor and ETRS
  *       propagators on ABACUS block-cyclic layouts with uneven blocks and
- *       swapped grids.
+ *       swapped grids, on the CPU and (when available) the GPU backend.
  */
 
 namespace
@@ -103,8 +103,17 @@ double max_abs_diff_all_ranks(const std::vector<std::complex<double>>& a,
 
 } // namespace
 
-// Parameters: global order, block size, swap grid, propagator type.
-class PropagatorDdlaTest : public testing::TestWithParam<std::tuple<int, int, bool, int>>
+// Run the backends LibDDLA was built with (false: CPU, true: GPU).
+#if DDLA_HAS_CPU && DDLA_HAS_GPU
+const auto ddla_backends = testing::Values(false, true);
+#elif DDLA_HAS_GPU
+const auto ddla_backends = testing::Values(true);
+#else
+const auto ddla_backends = testing::Values(false);
+#endif
+
+// Parameters: global order, block size, swap grid, propagator type, GPU backend.
+class PropagatorDdlaTest : public testing::TestWithParam<std::tuple<int, int, bool, int, bool>>
 {
   protected:
     std::ofstream ofs_running;
@@ -116,12 +125,13 @@ TEST_P(PropagatorDdlaTest, MatchesScalapack)
     const int nb = std::get<1>(GetParam());
     const bool swap_grid = std::get<2>(GetParam());
     const int propagator = std::get<3>(GetParam());
+    const bool use_gpu = std::get<4>(GetParam());
 
     Parallel_Orbitals pv;
     pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
     const BlockCyclicDistribution& dist = pv.para_2d();
     module_rt::DdlaContext ddla;
-    ddla.bind(dist);
+    ddla.bind(dist, use_gpu);
 
     // S is Hermitian positive definite (close to I); H is Hermitian.
     const std::vector<std::complex<double>> s_local = fill_local(dist, 11, 1.0, 0.1 / std::sqrt(nlocal));
@@ -160,7 +170,7 @@ TEST_P(PropagatorDdlaTest, MatchesScalapack)
     ASSERT_GT(u_norm, 0.1);
 
     const double diff = max_abs_diff_all_ranks(u_ref, u_ddla);
-    EXPECT_LT(diff, 1.0e-12 * nlocal) << "propagator=" << propagator << " nlocal=" << nlocal << " nb=" << nb << " grid=" << dist.nrproc()
+    EXPECT_LT(diff, 1.0e-12 * nlocal) << "propagator=" << propagator << " gpu=" << use_gpu << " nlocal=" << nlocal << " nb=" << nb << " grid=" << dist.nrproc()
                                       << "x" << dist.ncproc();
 }
 
@@ -169,7 +179,8 @@ INSTANTIATE_TEST_SUITE_P(Layouts,
                          testing::Combine(testing::Values(4, 37, 64),
                                           testing::Values(4),
                                           testing::Values(false, true),
-                                          testing::Values(0, 1, 2)));
+                                          testing::Values(0, 1, 2),
+                                          ddla_backends));
 
 int main(int argc, char** argv)
 {

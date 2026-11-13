@@ -27,7 +27,8 @@
  *     - match the ScaLAPACK path (null context) for the products used by
  *       one Crank-Nicolson step: H*psi, psi^H*(S psi) into the band x band
  *       Eij layout, psi*Cij, and the H/S half-step average, on uneven
- *       blocks, nband < nlocal and swapped grids.
+ *       blocks, nband < nlocal and swapped grids, on the CPU and (when
+ *       available) the GPU backend.
  *   - td_ddla_getrf + td_ddla_getrs
  *     - side 'L' matches ScaLAPACK pzgesv for S X = B with B in the psi
  *       (nlocal x nband) layout;
@@ -94,19 +95,30 @@ double max_abs_diff_all_ranks(const std::vector<Complex>& a, const std::vector<C
 
 } // namespace
 
-// Parameters: nlocal, nband, block size, swap grid.
-class TdLinalgTest : public testing::TestWithParam<std::tuple<int, int, int, bool>>
+// Run the backends LibDDLA was built with (false: CPU, true: GPU).
+#if DDLA_HAS_CPU && DDLA_HAS_GPU
+const auto ddla_backends = testing::Values(false, true);
+#elif DDLA_HAS_GPU
+const auto ddla_backends = testing::Values(true);
+#else
+const auto ddla_backends = testing::Values(false);
+#endif
+
+// Parameters: (nlocal, nband, block size, swap grid), GPU backend.
+class TdLinalgTest : public testing::TestWithParam<std::tuple<std::tuple<int, int, int, bool>, bool>>
 {
   protected:
     void SetUp() override
     {
-        nlocal = std::get<0>(GetParam());
-        nband = std::get<1>(GetParam());
-        const int nb = std::get<2>(GetParam());
-        const bool swap_grid = std::get<3>(GetParam());
+        const std::tuple<int, int, int, bool>& layout = std::get<0>(GetParam());
+        const bool use_gpu = std::get<1>(GetParam());
+        nlocal = std::get<0>(layout);
+        nband = std::get<1>(layout);
+        const int nb = std::get<2>(layout);
+        const bool swap_grid = std::get<3>(layout);
         pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
         pv.set_desc_wfc_Eij(nlocal, nband, pv.para_2d().nrloc());
-        ddla.bind(pv.para_2d());
+        ddla.bind(pv.para_2d(), use_gpu);
         tol = 1.0e-13 * nlocal;
     }
 
@@ -238,10 +250,11 @@ TEST_P(TdLinalgTest, GetrsMatchesScalapack)
 
 INSTANTIATE_TEST_SUITE_P(Layouts,
                          TdLinalgTest,
-                         testing::Values(std::make_tuple(4, 2, 1, false),
-                                         std::make_tuple(37, 13, 4, false),
-                                         std::make_tuple(64, 24, 8, false),
-                                         std::make_tuple(50, 40, 8, true)));
+                         testing::Combine(testing::Values(std::make_tuple(4, 2, 1, false),
+                                                          std::make_tuple(37, 13, 4, false),
+                                                          std::make_tuple(64, 24, 8, false),
+                                                          std::make_tuple(50, 40, 8, true)),
+                                          ddla_backends));
 
 int main(int argc, char** argv)
 {

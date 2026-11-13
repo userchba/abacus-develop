@@ -71,8 +71,9 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
     const std::string& output_dir = PARAM.globalv.global_out_dir;
 
     // If the device is GPU, enable use_tensor; also enable use_lapack unless ks_solver is cuSOLVERMp.
+    // With td_la_backend ddla, propagation keeps the distributed host-side path and LibDDLA runs it on the GPU.
     ct::DeviceType ct_device_type = ct::DeviceTypeToEnum<Device>::value;
-    if (ct_device_type == ct::DeviceType::GpuDevice)
+    if (ct_device_type == ct::DeviceType::GpuDevice && inp.td_la_backend != "ddla")
     {
         use_tensor = true;
         if (inp.ks_solver != "cusolvermp")
@@ -117,7 +118,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
 #ifdef __DDLA
     if (inp.td_la_backend == "ddla")
     {
-        ddla_ctx_.bind(this->pv.para_2d());
+        const bool ddla_gpu = ct_device_type == ct::DeviceType::GpuDevice;
+        ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
         ddla = &ddla_ctx_;
     }
 #endif
@@ -426,7 +428,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
 #ifdef __DDLA
     if (this->inp_->td_la_backend == "ddla")
     {
-        ddla_ctx_.bind(this->pv.para_2d());
+        const bool ddla_gpu = ct::DeviceTypeToEnum<Device>::value == ct::DeviceType::GpuDevice;
+        ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
         ddla = &ddla_ctx_;
     }
 #endif
