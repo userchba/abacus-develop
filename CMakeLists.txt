@@ -340,8 +340,7 @@ if(ENABLE_PEXSI)
   set(CMAKE_CXX_STANDARD 14)
 endif()
 if(ENABLE_DDLA)
-  # The LibDDLA public headers require C++17.
-  set_if_higher(CMAKE_CXX_STANDARD 17)
+  # The LibDDLA public headers need only C++11; ddla::ddla carries that requirement.
   find_package(LibDDLA REQUIRED CONFIG)
   message(STATUS "Found LibDDLA ${LibDDLA_VERSION}: ${LibDDLA_DIR}")
 endif()

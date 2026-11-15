@@ -89,7 +89,6 @@ class DdlaContextTest : public testing::Test
 {
 };
 
-#if DDLA_HAS_CPU
 TEST_F(DdlaContextTest, BindReusesHandleOnSameGrid)
 {
     BlockCyclicDistribution dist;
@@ -117,8 +116,6 @@ TEST_F(DdlaContextTest, BindReusesHandleOnSameGrid)
     EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::CPU);
 }
 
-#endif // DDLA_HAS_CPU
-
 #if DDLA_HAS_GPU
 TEST_F(DdlaContextTest, BindsGpuHandle)
 {
@@ -134,16 +131,13 @@ TEST_F(DdlaContextTest, BindsGpuHandle)
     EXPECT_TRUE(ctx.on_gpu());
     EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::GPU);
 
-#if DDLA_HAS_CPU
     // Switching the backend on the same grid replaces the handle.
     ctx.bind(dist, false);
     EXPECT_FALSE(ctx.on_gpu());
     EXPECT_EQ(ddla::ddlaGetBackend(ctx.handle()), ddla::DdlaBackend::CPU);
-#endif // DDLA_HAS_CPU
 }
 #endif // DDLA_HAS_GPU
 
-#if DDLA_HAS_CPU
 // Parameters: global order, block size, conjugate-transpose A, swap grid.
 class DdlaContextPgemmTest : public testing::TestWithParam<std::tuple<int, int, bool, bool>>
 {
@@ -189,20 +183,20 @@ TEST_P(DdlaContextPgemmTest, PgemmMatchesScalapack)
                              1,
                              1,
                              dist.desc());
-    ddla::pgemm<ddla::DdlaBackend::CPU>(ctx.handle(),
-                                        transa,
-                                        transb,
-                                        n,
-                                        n,
-                                        n,
-                                        alpha,
-                                        a.data(),
-                                        dist.desc(),
-                                        b.data(),
-                                        dist.desc(),
-                                        beta,
-                                        c_ddla.data(),
-                                        dist.desc());
+    ddla::pgemm(ctx.handle(),
+                transa,
+                transb,
+                n,
+                n,
+                n,
+                alpha,
+                a.data(),
+                dist.desc(),
+                b.data(),
+                dist.desc(),
+                beta,
+                c_ddla.data(),
+                dist.desc());
 
     const double diff = max_abs_diff_all_ranks(c_ref, c_ddla);
     EXPECT_LT(diff, 1.0e-12 * n) << "n=" << n << " nb=" << nb << " transa=" << transa
@@ -217,8 +211,6 @@ INSTANTIATE_TEST_SUITE_P(Layouts,
                                          std::make_tuple(64, 8, true, false),
                                          std::make_tuple(50, 16, false, true),
                                          std::make_tuple(50, 16, true, true)));
-
-#endif // DDLA_HAS_CPU
 
 int main(int argc, char** argv)
 {

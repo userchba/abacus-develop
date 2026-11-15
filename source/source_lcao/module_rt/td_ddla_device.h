@@ -1,28 +1,31 @@
 #ifndef ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H
 #define ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H
 
-// GPU staging of block-cyclic matrices for LibDDLA. Include only from source
-// files that are compiled with LibDDLA (__DDLA); the content is available
-// when LibDDLA has GPU support.
+// Block-cyclic matrices in the memory of a LibDDLA handle: device memory for a
+// GPU handle, host memory for a CPU handle. Include only from source files
+// that are compiled with LibDDLA (__DDLA).
 #ifdef __DDLA
-#include <ddla/ddla.h>
-
-#if DDLA_HAS_GPU
+#include "ddla_context.h"
 #include "source_base/module_external/blacs_connector.h"
 #include "source_base/module_external/scalapack_connector.h"
+
+#include <ddla/ddla.h>
 
 #include <algorithm>
 #include <complex>
 #include <cstddef>
-#include <stdexcept>
-#include <string>
+#include <type_traits>
 
 namespace module_rt
 {
 namespace ddla_device
 {
 
-using DeviceMatrix = ddla::vector<std::complex<double>>;
+// Storage for the local block of a matrix of scalar type T in the handle's
+// memory; the default T is the complex propagation type.
+template <typename T = std::complex<double>>
+using DeviceMatrixOf = ddla::vector<T>;
+using DeviceMatrix = DeviceMatrixOf<>;
 
 // Number of locally stored elements (leading dimension x local columns) of
 // the block-cyclic matrix described by desc on this rank; zero when the rank
@@ -43,77 +46,104 @@ inline std::size_t local_size(const int* desc)
     return static_cast<std::size_t>(desc[8]) * static_cast<std::size_t>(ncol);
 }
 
-// Copy the local block of a host matrix into an existing device matrix.
+// Copy the local block of a host matrix into an existing matrix in the handle's memory.
+template <typename T>
 inline void copy_to_device(const ddla::DdlaHandle_t& handle,
-                           DeviceMatrix& device,
-                           const std::complex<double>* host,
+                           DeviceMatrixOf<T>& device,
+                           const T* host,
                            const int* desc)
 {
-    const std::size_t count = local_size(desc);
-    const std::size_t bytes = count * sizeof(std::complex<double>);
-    const ddla::ddlaStatus_t status = ddla::ddlaMemcpy(handle, device.data(), host, bytes);
-    if (status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS)
-    {
-        const std::string message = "host-to-device copy of " + std::to_string(count) + " elements failed with status "
-                                    + std::to_string(static_cast<int>(status));
-        throw std::runtime_error(message);
-    }
+    const std::size_t bytes = local_size(desc) * sizeof(T);
+    ddla::DDLA_CHECK(ddla::ddlaMemcpy(handle, device.data(), host, bytes));
 }
 
-// Device matrix for the layout desc with uninitialized content. Ranks without
-// local data keep one element so that LibDDLA always gets a valid pointer.
-inline DeviceMatrix allocate(const ddla::DdlaHandle_t& handle, const int* desc)
+// Matrix for the layout desc in the handle's memory, with uninitialized
+// content. Ranks without local data keep one element so that LibDDLA always
+// gets a valid pointer.
+template <typename T = std::complex<double>>
+inline DeviceMatrixOf<T> allocate(const ddla::DdlaHandle_t& handle, const int* desc)
 {
     const std::size_t count = local_size(desc);
     const std::size_t capacity = std::max<std::size_t>(count, 1);
-    return DeviceMatrix(handle, capacity);
+    return DeviceMatrixOf<T>(handle, capacity);
 }
 
-// Device matrix for the layout desc filled with zeros.
-inline DeviceMatrix zeros(const ddla::DdlaHandle_t& handle, const int* desc)
+// Matrix for the layout desc in the handle's memory, filled with zeros.
+template <typename T = std::complex<double>>
+inline DeviceMatrixOf<T> zeros(const ddla::DdlaHandle_t& handle, const int* desc)
 {
-    DeviceMatrix device = allocate(handle, desc);
-    const std::size_t bytes = device.size() * sizeof(std::complex<double>);
-    const ddla::ddlaStatus_t status = ddla::ddlaMemset(handle, device.data(), 0, bytes);
-    if (status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS)
-    {
-        const std::string message = "device memset failed with status " + std::to_string(static_cast<int>(status));
-        throw std::runtime_error(message);
-    }
+    DeviceMatrixOf<T> device = allocate<T>(handle, desc);
+    const std::size_t bytes = device.size() * sizeof(T);
+    ddla::DDLA_CHECK(ddla::ddlaMemset(handle, device.data(), 0, bytes));
     return device;
 }
 
-// Copy the local block of a host matrix to the handle's GPU.
-inline DeviceMatrix to_device(const ddla::DdlaHandle_t& handle, const std::complex<double>* host, const int* desc)
+// Copy of the local block of a host matrix in the handle's memory.
+template <typename T>
+inline DeviceMatrixOf<T> to_device(const ddla::DdlaHandle_t& handle, const T* host, const int* desc)
 {
-    DeviceMatrix device = allocate(handle, desc);
+    DeviceMatrixOf<T> device = allocate<T>(handle, desc);
     copy_to_device(handle, device, host, desc);
     return device;
 }
 
-// Copy the local block of a GPU matrix back to host memory and wait for it.
+// Copy the local block of a matrix in the handle's memory back to host memory and wait for it.
+template <typename T>
 inline void to_host(const ddla::DdlaHandle_t& handle,
-                    std::complex<double>* host,
-                    const DeviceMatrix& device,
+                    T* host,
+                    const DeviceMatrixOf<T>& device,
                     const int* desc)
 {
-    const std::size_t count = local_size(desc);
-    const std::size_t bytes = count * sizeof(std::complex<double>);
-    const ddla::ddlaStatus_t copy_status = ddla::ddlaMemcpy(handle, host, device.data(), bytes);
-    const ddla::ddlaStatus_t sync_status = ddla::ddlaSynchronize(handle);
-    if (copy_status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS || sync_status != ddla::ddlaStatus_t::DDLA_STATUS_SUCCESS)
-    {
-        const std::string message = "device-to-host copy of " + std::to_string(count) + " elements failed with status "
-                                    + std::to_string(static_cast<int>(copy_status)) + "/"
-                                    + std::to_string(static_cast<int>(sync_status));
-        throw std::runtime_error(message);
-    }
+    const std::size_t bytes = local_size(desc) * sizeof(T);
+    ddla::DDLA_CHECK(ddla::ddlaMemcpy(handle, host, device.data(), bytes));
+    ddla::DDLA_CHECK(ddla::ddlaSynchronize(handle));
 }
+
+// The local block of a host matrix where the backend of a LibDDLA call reads
+// and writes it: the host storage itself for a CPU handle, a device copy for
+// a GPU handle. T may be const for an input that is only read.
+template <typename T>
+class BackendBlock
+{
+  public:
+    using Value = typename std::remove_const<T>::type;
+
+    BackendBlock(const DdlaContext& ddla, T* host, const int* desc)
+        : handle_(ddla.handle()), on_gpu_(ddla.on_gpu()), host_(host), desc_(desc), device_(ddla.handle())
+    {
+        if (on_gpu_)
+        {
+            device_ = to_device<Value>(handle_, host_, desc_);
+        }
+    }
+
+    // Pointer to pass to LibDDLA.
+    T* data()
+    {
+        return on_gpu_ ? device_.data() : host_;
+    }
+
+    // Make a result visible in the host matrix: copy it back from the GPU;
+    // a CPU handle has already written it there.
+    void to_host()
+    {
+        if (on_gpu_)
+        {
+            ddla_device::to_host(handle_, host_, device_, desc_);
+        }
+    }
+
+  private:
+    const ddla::DdlaHandle_t& handle_;
+    const bool on_gpu_;
+    T* host_;
+    const int* desc_;
+    DeviceMatrixOf<Value> device_;
+};
 
 } // namespace ddla_device
 } // namespace module_rt
 
-#endif // DDLA_HAS_GPU
 #endif // __DDLA
 
 #endif // ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H

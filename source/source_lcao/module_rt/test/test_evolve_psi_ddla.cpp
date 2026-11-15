@@ -104,11 +104,10 @@ class BlockHamiltonian : public hamilt::Hamilt<Complex>
     }
 };
 
-// Run the backends LibDDLA was built with (false: CPU, true: GPU).
-#if DDLA_HAS_CPU && DDLA_HAS_GPU
+// Run the backends LibDDLA was built with (false: CPU, true: GPU); the CPU
+// backend is always built.
+#if DDLA_HAS_GPU
 const auto ddla_backends = testing::Values(false, true);
-#elif DDLA_HAS_GPU
-const auto ddla_backends = testing::Values(true);
 #else
 const auto ddla_backends = testing::Values(false);
 #endif

@@ -11,7 +11,7 @@
 #include <ddla/ddla.h>
 
 #include <cstddef>
-#include <stdexcept>
+#include <exception>
 #include <string>
 #endif
 
@@ -21,11 +21,8 @@ namespace module_rt
 #ifdef __DDLA
 namespace
 {
-#if DDLA_HAS_GPU
-using ddla_device::DeviceMatrix;
-using ddla_device::to_device;
-using ddla_device::to_host;
-#endif // DDLA_HAS_GPU
+using ComplexBlock = ddla_device::BackendBlock<std::complex<double>>;
+using ConstComplexBlock = ddla_device::BackendBlock<const std::complex<double>>;
 
 void quit_on_ddla_error(const char* where, const std::exception& e)
 {
@@ -58,36 +55,11 @@ void td_gemm(const DdlaContext* ddla,
 #ifdef __DDLA
     try
     {
-        const ddla::DdlaHandle_t& handle = ddla->handle();
-#if DDLA_HAS_GPU
-        if (ddla->on_gpu())
-        {
-            const DeviceMatrix d_a = to_device(handle, A, descA);
-            const DeviceMatrix d_b = to_device(handle, B, descB);
-            DeviceMatrix d_c = to_device(handle, C, descC);
-            ddla::pgemm<ddla::DdlaBackend::GPU>(handle,
-                                                transa,
-                                                transb,
-                                                m,
-                                                n,
-                                                k,
-                                                alpha,
-                                                d_a.data(),
-                                                descA,
-                                                d_b.data(),
-                                                descB,
-                                                beta,
-                                                d_c.data(),
-                                                descC);
-            to_host(handle, C, d_c, descC);
-            return;
-        }
-#endif // DDLA_HAS_GPU
-#if DDLA_HAS_CPU
-        ddla::pgemm<ddla::DdlaBackend::CPU>(handle, transa, transb, m, n, k, alpha, A, descA, B, descB, beta, C, descC);
-#else
-        throw std::runtime_error("LibDDLA is built without CPU support");
-#endif // DDLA_HAS_CPU
+        ConstComplexBlock a(*ddla, A, descA);
+        ConstComplexBlock b(*ddla, B, descB);
+        ComplexBlock c(*ddla, C, descC);
+        ddla::pgemm(ddla->handle(), transa, transb, m, n, k, alpha, a.data(), descA, b.data(), descB, beta, c.data(), descC);
+        c.to_host();
     }
     catch (const std::exception& e)
     {
@@ -119,58 +91,28 @@ void td_geadd(const DdlaContext* ddla,
     const char no_trans = 'N';
     try
     {
-        const ddla::DdlaHandle_t& handle = ddla->handle();
-#if DDLA_HAS_GPU
-        if (ddla->on_gpu())
-        {
-            const DeviceMatrix d_a = to_device(handle, A, descA);
-            DeviceMatrix d_c = to_device(handle, C, descC);
-            ddla::pgeadd<ddla::DdlaBackend::GPU>(handle,
-                                                 trans,
-                                                 no_trans,
-                                                 m,
-                                                 n,
-                                                 alpha,
-                                                 d_a.data(),
-                                                 1,
-                                                 1,
-                                                 descA,
-                                                 beta,
-                                                 d_c.data(),
-                                                 1,
-                                                 1,
-                                                 descC,
-                                                 d_c.data(),
-                                                 1,
-                                                 1,
-                                                 descC);
-            to_host(handle, C, d_c, descC);
-            return;
-        }
-#endif // DDLA_HAS_GPU
-#if DDLA_HAS_CPU
-        ddla::pgeadd<ddla::DdlaBackend::CPU>(handle,
-                                             trans,
-                                             no_trans,
-                                             m,
-                                             n,
-                                             alpha,
-                                             A,
-                                             1,
-                                             1,
-                                             descA,
-                                             beta,
-                                             C,
-                                             1,
-                                             1,
-                                             descC,
-                                             C,
-                                             1,
-                                             1,
-                                             descC);
-#else
-        throw std::runtime_error("LibDDLA is built without CPU support");
-#endif // DDLA_HAS_CPU
+        ConstComplexBlock a(*ddla, A, descA);
+        ComplexBlock c(*ddla, C, descC);
+        ddla::pgeadd(ddla->handle(),
+                     trans,
+                     no_trans,
+                     m,
+                     n,
+                     alpha,
+                     a.data(),
+                     1,
+                     1,
+                     descA,
+                     beta,
+                     c.data(),
+                     1,
+                     1,
+                     descC,
+                     c.data(),
+                     1,
+                     1,
+                     descC);
+        c.to_host();
     }
     catch (const std::exception& e)
     {
@@ -193,23 +135,9 @@ void td_ddla_getrf(const DdlaContext& ddla,
     int info = 0;
     try
     {
-        const ddla::DdlaHandle_t& handle = ddla.handle();
-#if DDLA_HAS_GPU
-        if (ddla.on_gpu())
-        {
-            DeviceMatrix d_a = to_device(handle, A, dist.desc());
-            ddla::pgetrf<ddla::DdlaBackend::GPU>(handle, n, n, d_a.data(), 1, 1, dist.desc(), ipiv.data(), info);
-            to_host(handle, A, d_a, dist.desc());
-        }
-        else
-#endif // DDLA_HAS_GPU
-        {
-#if DDLA_HAS_CPU
-            ddla::pgetrf<ddla::DdlaBackend::CPU>(handle, n, n, A, 1, 1, dist.desc(), ipiv.data(), info);
-#else
-            throw std::runtime_error("LibDDLA is built without CPU support");
-#endif // DDLA_HAS_CPU
-        }
+        ComplexBlock a(ddla, A, dist.desc());
+        ddla::pgetrf(ddla.handle(), n, n, a.data(), 1, 1, dist.desc(), ipiv.data(), info);
+        a.to_host();
     }
     catch (const std::exception& e)
     {
@@ -239,31 +167,10 @@ void td_ddla_getrs(const DdlaContext& ddla,
     const char no_trans = 'N';
     try
     {
-        const ddla::DdlaHandle_t& handle = ddla.handle();
-#if DDLA_HAS_GPU
-        if (ddla.on_gpu())
-        {
-            DeviceMatrix d_a = to_device(handle, A, dist.desc());
-            DeviceMatrix d_b = to_device(handle, B, descB);
-            ddla::pgetrs<ddla::DdlaBackend::GPU>(handle,
-                                                 side,
-                                                 no_trans,
-                                                 n,
-                                                 nrhs,
-                                                 d_a.data(),
-                                                 dist.desc(),
-                                                 ipiv.data(),
-                                                 d_b.data(),
-                                                 descB);
-            to_host(handle, B, d_b, descB);
-            return;
-        }
-#endif // DDLA_HAS_GPU
-#if DDLA_HAS_CPU
-        ddla::pgetrs<ddla::DdlaBackend::CPU>(handle, side, no_trans, n, nrhs, A, dist.desc(), ipiv.data(), B, descB);
-#else
-        throw std::runtime_error("LibDDLA is built without CPU support");
-#endif // DDLA_HAS_CPU
+        ComplexBlock a(ddla, A, dist.desc());
+        ComplexBlock b(ddla, B, descB);
+        ddla::pgetrs(ddla.handle(), side, no_trans, n, nrhs, a.data(), dist.desc(), ipiv.data(), b.data(), descB);
+        b.to_host();
     }
     catch (const std::exception& e)
     {

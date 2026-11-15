@@ -21,7 +21,7 @@ namespace module_rt
 #ifdef __MPI
 bool evolve_psi_ddla_device_available(const DdlaContext* ddla, const int propagator)
 {
-#if defined(__DDLA) && DDLA_HAS_GPU
+#ifdef __DDLA
     return ddla != nullptr && ddla->on_gpu() && propagator == 0;
 #else
     return false;
@@ -43,11 +43,10 @@ void evolve_psi_ddla_device(const int nband,
                             std::ofstream& ofs_running,
                             const EijOutputInfo& output_info)
 {
-#if defined(__DDLA) && DDLA_HAS_GPU
+#ifdef __DDLA
     ModuleBase::timer::start("module_rt", "evolve_psi_ddla_device");
 
     using ddla_device::DeviceMatrix;
-    const ddla::DdlaBackend gpu = ddla::DdlaBackend::GPU;
     const int* desc = pv->para_2d().desc();
     const int* desc_wfc = pv->desc_wfc;
     const int* desc_eij = pv->desc_Eij;
@@ -82,59 +81,59 @@ void evolve_psi_ddla_device(const int nband,
                 {
                     const DeviceMatrix d_h_last = ddla_device::to_device(handle, H_laststep, desc);
                     const DeviceMatrix d_s_last = ddla_device::to_device(handle, S_laststep, desc);
-                    ddla::pgeadd<gpu>(handle, no_trans, no_trans, nlocal, nlocal, half, d_h_last.data(), 1, 1, desc,
-                                      half, d_h.data(), 1, 1, desc, d_h_mid.data(), 1, 1, desc);
-                    ddla::pgeadd<gpu>(handle, no_trans, no_trans, nlocal, nlocal, half, d_s_last.data(), 1, 1, desc,
-                                      half, d_s.data(), 1, 1, desc, d_s_mid.data(), 1, 1, desc);
+                    ddla::pgeadd(handle, no_trans, no_trans, nlocal, nlocal, half, d_h_last.data(), 1, 1, desc,
+                                 half, d_h.data(), 1, 1, desc, d_h_mid.data(), 1, 1, desc);
+                    ddla::pgeadd(handle, no_trans, no_trans, nlocal, nlocal, half, d_s_last.data(), 1, 1, desc,
+                                 half, d_s.data(), 1, 1, desc, d_s_mid.data(), 1, 1, desc);
                 }
                 // (2) numerator S - i*dt/4*H in d_u, denominator S + i*dt/4*H
-                ddla::pgeadd<gpu>(handle, no_trans, no_trans, nlocal, nlocal, one, d_s_mid.data(), 1, 1, desc,
-                                  minus_coef, d_h_mid.data(), 1, 1, desc, d_u.data(), 1, 1, desc);
-                ddla::pgeadd<gpu>(handle, no_trans, no_trans, nlocal, nlocal, one, d_s_mid.data(), 1, 1, desc,
-                                  plus_coef, d_h_mid.data(), 1, 1, desc, d_denominator.data(), 1, 1, desc);
+                ddla::pgeadd(handle, no_trans, no_trans, nlocal, nlocal, one, d_s_mid.data(), 1, 1, desc,
+                             minus_coef, d_h_mid.data(), 1, 1, desc, d_u.data(), 1, 1, desc);
+                ddla::pgeadd(handle, no_trans, no_trans, nlocal, nlocal, one, d_s_mid.data(), 1, 1, desc,
+                             plus_coef, d_h_mid.data(), 1, 1, desc, d_denominator.data(), 1, 1, desc);
             }
             // U = denominator^{-1} * numerator
             const std::size_t len_ipiv = static_cast<std::size_t>(pv->para_2d().nrloc())
                                          + static_cast<std::size_t>(pv->para_2d().nb());
             std::vector<int> ipiv(len_ipiv, 0);
             int info = 0;
-            ddla::pgetrf<gpu>(handle, nlocal, nlocal, d_denominator.data(), 1, 1, desc, ipiv.data(), info);
+            ddla::pgetrf(handle, nlocal, nlocal, d_denominator.data(), 1, 1, desc, ipiv.data(), info);
             if (info != 0)
             {
                 const std::string message = "pgetrf found a singular matrix, info = " + std::to_string(info);
                 throw std::runtime_error(message);
             }
-            ddla::pgetrs<gpu>(handle, left, no_trans, nlocal, nlocal, d_denominator.data(), desc, ipiv.data(),
-                              d_u.data(), desc);
+            ddla::pgetrs(handle, left, no_trans, nlocal, nlocal, d_denominator.data(), desc, ipiv.data(),
+                         d_u.data(), desc);
         }
 
         // (3) psi(t+dt) = U * psi(t)
         DeviceMatrix d_psi = ddla_device::zeros(handle, desc_wfc);
         {
             const DeviceMatrix d_psi_last = ddla_device::to_device(handle, psi_k_laststep, desc_wfc);
-            ddla::pgemm<gpu>(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_u.data(), desc,
-                             d_psi_last.data(), desc_wfc, zero, d_psi.data(), desc_wfc);
+            ddla::pgemm(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_u.data(), desc,
+                        d_psi_last.data(), desc_wfc, zero, d_psi.data(), desc_wfc);
         }
 
         // (4) normalize: psi <- psi * diag(1 / sqrt(psi^H S psi))
         DeviceMatrix d_tmp = ddla_device::zeros(handle, desc_wfc);
         DeviceMatrix d_eij = ddla_device::zeros(handle, desc_eij);
-        ddla::pgemm<gpu>(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_s.data(), desc, d_psi.data(),
-                         desc_wfc, zero, d_tmp.data(), desc_wfc);
-        ddla::pgemm<gpu>(handle, conj_trans, no_trans, nband, nband, nlocal, one, d_psi.data(), desc_wfc,
-                         d_tmp.data(), desc_wfc, zero, d_eij.data(), desc_eij);
+        ddla::pgemm(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_s.data(), desc, d_psi.data(),
+                    desc_wfc, zero, d_tmp.data(), desc_wfc);
+        ddla::pgemm(handle, conj_trans, no_trans, nband, nband, nlocal, one, d_psi.data(), desc_wfc,
+                    d_tmp.data(), desc_wfc, zero, d_eij.data(), desc_eij);
         ddla_device::to_host(handle, eij_host.data(), d_eij, desc_eij);
         norm_psi_scaling(pv, nband, eij_host.data());
         ddla_device::copy_to_device(handle, d_eij, eij_host.data(), desc_eij);
         DeviceMatrix d_psi_norm = ddla_device::zeros(handle, desc_wfc);
-        ddla::pgemm<gpu>(handle, no_trans, no_trans, nlocal, nband, nband, one, d_psi.data(), desc_wfc,
-                         d_eij.data(), desc_eij, zero, d_psi_norm.data(), desc_wfc);
+        ddla::pgemm(handle, no_trans, no_trans, nlocal, nband, nband, one, d_psi.data(), desc_wfc,
+                    d_eij.data(), desc_eij, zero, d_psi_norm.data(), desc_wfc);
 
         // (5) Eij = psi^H H(t+dt) psi
-        ddla::pgemm<gpu>(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_h.data(), desc,
-                         d_psi_norm.data(), desc_wfc, zero, d_tmp.data(), desc_wfc);
-        ddla::pgemm<gpu>(handle, conj_trans, no_trans, nband, nband, nlocal, one, d_psi_norm.data(), desc_wfc,
-                         d_tmp.data(), desc_wfc, zero, d_eij.data(), desc_eij);
+        ddla::pgemm(handle, no_trans, no_trans, nlocal, nband, nlocal, one, d_h.data(), desc,
+                    d_psi_norm.data(), desc_wfc, zero, d_tmp.data(), desc_wfc);
+        ddla::pgemm(handle, conj_trans, no_trans, nband, nband, nlocal, one, d_psi_norm.data(), desc_wfc,
+                    d_tmp.data(), desc_wfc, zero, d_eij.data(), desc_eij);
         ddla_device::to_host(handle, eij_host.data(), d_eij, desc_eij);
         ddla_device::to_host(handle, psi_k, d_psi_norm, desc_wfc);
     }
@@ -148,7 +147,7 @@ void evolve_psi_ddla_device(const int nband,
 
     ModuleBase::timer::end("module_rt", "evolve_psi_ddla_device");
 #else
-    ModuleBase::WARNING_QUIT("module_rt::evolve_psi_ddla_device", "ABACUS is built without LibDDLA GPU support!");
+    ModuleBase::WARNING_QUIT("module_rt::evolve_psi_ddla_device", "ABACUS is built without LibDDLA support!");
 #endif
 }
 #endif // __MPI
