@@ -9,6 +9,7 @@
 #include "source_hamilt/module_xc/exx_info.h" // LCAO owns full Exx_Info
 #include "source_lcao/allocate_dm.h"          // mohan add 2025-10-30
 #include "source_lcao/module_rdmft/rdmft.h"   // rdmft
+#include "source_lcao/module_rt/ddla_context.h"
 #include "source_lcao/module_rt/td_info.h"
 #include "source_lcao/setup_deepks.h" // for deepks, mohan add 20251008
 #include "source_lcao/setup_exx.h"    // for exx, mohan add 20251008
@@ -91,6 +92,13 @@ class ESolver_KS_LCAO : public ESolver_KS
 
     //! NAO orbitals: 2D block-cyclic distribution info
     Parallel_Orbitals pv;
+
+#ifdef __DDLA
+    //! LibDDLA handle on the grid of pv, bound on first use by ks_solver ddla
+    //! or td_la_backend ddla and kept for the whole run. Declared after pv so
+    //! that it is released before pv.
+    module_rt::DdlaContext ddla_ctx_;
+#endif
 
     //! GintInfo: used to store basic grid-integration information for module_gint
     std::unique_ptr<ModuleGint::GintInfo> gint_info_;

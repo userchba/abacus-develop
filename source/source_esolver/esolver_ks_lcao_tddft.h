@@ -95,11 +95,6 @@ class ESolver_KS_LCAO_TDDFT : public ESolver_KS_LCAO<std::complex<double>, TR>
     //! Field manager shared by propagation, potentials, and restart output.
     std::shared_ptr<elecstate::TDFieldManager> td_field_manager_;
 
-#ifdef __DDLA
-    //! LibDDLA handle bound to the propagation grid when td_la_backend is ddla.
-    module_rt::DdlaContext ddla_ctx_;
-#endif
-
   private:
     //! Fixed electronic-step origin loaded at restart, independent of field advancement.
     int restart_step_ = 0;

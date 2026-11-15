@@ -128,6 +128,31 @@ if(ENABLE_MPI)
         SOURCES test_diago_lcao.cpp ../diago_scalapack.cpp ../diago_lapack.cpp ${_dsp_cpack_fallback_src})
     endif()
 
+    if(ENABLE_DDLA)
+      addtest(
+        TARGET MODULE_HSOLVER_LCAO_ddla
+        LIBS parameter base psi device ddla::ddla
+        SOURCES test_diago_ddla.cpp ../diago_ddla.cpp
+                ../../source_lcao/module_rt/ddla_context.cpp)
+      set_tests_properties(
+        MODULE_HSOLVER_LCAO_ddla
+        PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                   TIMEOUT 300)
+      foreach(rank_count IN ITEMS 2 4 6)
+        add_test(
+          NAME MODULE_HSOLVER_LCAO_ddla_np${rank_count}
+          COMMAND
+            ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+            ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_HSOLVER_LCAO_ddla>
+            ${MPIEXEC_POSTFLAGS}
+          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        set_tests_properties(
+          MODULE_HSOLVER_LCAO_ddla_np${rank_count}
+          PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                     PROCESSORS "${rank_count}" TIMEOUT 300)
+      endforeach()
+    endif()
+
     if(TARGET PEXSI::PEXSI)
       addtest(
         TARGET MODULE_HSOLVER_LCAO_PEXSI

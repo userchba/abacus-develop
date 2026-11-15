@@ -606,6 +606,11 @@ void ESolver_KS_LCAO<TK, TR>::hamilt2rho_single(UnitCell& ucell, int istep, int 
     // 3) run HSolver
     if (!skip_solve)
     {
+        // LibDDLA handle kept for the whole run, used by ks_solver ddla.
+        module_rt::DdlaContext* ddla_context = nullptr;
+#ifdef __DDLA
+        ddla_context = &this->ddla_ctx_;
+#endif
         hsolver::HSolverLCAO<TK> hsolver_lcao_obj(&(this->pv),
                                                   this->inp_->ks_solver,
                                                   PARAM.globalv.kpar_lcao,
@@ -614,7 +619,8 @@ void ESolver_KS_LCAO<TK, TR>::hamilt2rho_single(UnitCell& ucell, int istep, int 
                                                   this->inp_->nelec,
                                                   this->inp_->device == "gpu",
                                                   GlobalV::NPROC,
-                                                  GlobalV::MY_RANK);
+                                                  GlobalV::MY_RANK,
+                                                  ddla_context);
         // the eigensolvers only ever ask the Hamiltonian for H(k) and S(k)
         hamilt::HamiltHSMatrix<TK> hs(static_cast<hamilt::Hamilt<TK>*>(this->p_hamilt));
         hsolver_lcao_obj.solve(hs, this->psi[0], this->pelec, *this->dmat.dm, this->chr, this->inp_->nspin, ucell.omega, skip_charge);

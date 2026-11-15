@@ -8,6 +8,11 @@
 #include "source_estate/module_charge/charge.h" // mohan add 20251024
 #include "source_estate/module_dm/density_matrix.h" // mohan add 20251103
 
+namespace module_rt
+{
+class DdlaContext;
+}
+
 namespace hsolver
 {
 
@@ -23,9 +28,11 @@ class HSolverLCAO
                 const double nelec_in,
                 const bool use_gpu_in,
                 const int world_nproc_in,
-                const int world_rank_in)
+                const int world_rank_in,
+                module_rt::DdlaContext* ddla_context_in = nullptr)
         : ParaV(ParaV_in), method(method_in), kpar_lcao(kpar_lcao_in), nlocal(nlocal_in), nbands(nbands_in),
-          nelec(nelec_in), use_gpu(use_gpu_in), world_nproc(world_nproc_in), world_rank(world_rank_in){};
+          nelec(nelec_in), use_gpu(use_gpu_in), world_nproc(world_nproc_in), world_rank(world_rank_in),
+          ddla_context(ddla_context_in){};
 
     /// @param hs supplies H(k) and S(k) of the Hamiltonian for each k point
     void solve(HSMatrix<TK>& hs,
@@ -38,10 +45,12 @@ class HSolverLCAO
 			   const bool skip_charge);
 
   private:
+    /// @param ddla LibDDLA handle on the grid of hk and sk; used by ks_solver ddla, nullptr otherwise
     void hamiltSolvePsiK(ModuleBase::MatrixBlock<TK>& hk,
                          ModuleBase::MatrixBlock<TK>& sk,
                          psi::Psi<TK>& psi,
-                         double* eigenvalue); // for kpar_lcao == 1
+                         double* eigenvalue,
+                         const module_rt::DdlaContext* ddla); // for kpar_lcao == 1
 
     void parakSolve(HSMatrix<TK>& hs,
                     psi::Psi<TK>& psi,
@@ -65,6 +74,10 @@ class HSolverLCAO
     const bool use_gpu;  // true if running on GPU, only used by the native-ELPA branch
     const int world_nproc;
     const int world_rank;
+
+    /// LibDDLA handle owned by the caller for ks_solver ddla, kept across solves
+    /// on the grid of ParaV; nullptr makes each solve bind a handle of its own.
+    module_rt::DdlaContext* const ddla_context;
 };
 
 } // namespace hsolver

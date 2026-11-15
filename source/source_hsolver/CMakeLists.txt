@@ -25,6 +25,9 @@ if(ENABLE_LCAO)
   if(ENABLE_ELPA)
     list(APPEND objects diago_elpa.cpp diago_elpa_native.cpp)
   endif()
+  if(ENABLE_DDLA)
+    list(APPEND objects diago_ddla.cpp)
+  endif()
 
   # DSP build without C_PACK: provide the zhegvx_ fallback for
   # cpack_zhegvx_driver (used by diago_lapack.cpp under __DSP).

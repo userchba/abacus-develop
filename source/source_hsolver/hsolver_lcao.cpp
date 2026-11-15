@@ -26,6 +26,11 @@
 #include "diago_pexsi.h"
 #endif
 
+#ifdef __DDLA
+#include "diago_ddla.h"
+#include "source_lcao/module_rt/ddla_context.h"
+#endif
+
 #include "source_base/module_device/device.h"
 #include "source_estate/elecstate_tools.h"
 #include "source_base/memory_recorder.h"
@@ -68,6 +73,21 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
     #endif
         if (this->kpar_lcao == 1)
         {
+            const module_rt::DdlaContext* ddla = nullptr;
+#ifdef __DDLA
+            // One LibDDLA handle on the grid of H(k) and S(k) serves every k point.
+            // The caller's handle also serves its later solves; binding it again
+            // to the same grid keeps the existing handle.
+            module_rt::DdlaContext local_ddla;
+            if (this->method == "ddla")
+            {
+                module_rt::DdlaContext& context = (this->ddla_context != nullptr) ? *this->ddla_context : local_ddla;
+                ModuleBase::timer::start("HSolverLCAO", "ddla_bind");
+                context.bind(this->ParaV->para_2d(), this->use_gpu);
+                ModuleBase::timer::end("HSolverLCAO", "ddla_bind");
+                ddla = &context;
+            }
+#endif
             /// Loop over k points for solve Hamiltonian to eigenpairs(eigenvalues and eigenvectors).
             for (int ik = 0; ik < psi.get_nk(); ++ik)
             {
@@ -79,7 +99,7 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
                 psi.fix_k(ik);
 
                 /// solve eigenvector and eigenvalue for H(k)
-                this->hamiltSolvePsiK(hk, sk, psi, &(pes->ekb(ik, 0)));
+                this->hamiltSolvePsiK(hk, sk, psi, &(pes->ekb(ik, 0)), ddla);
             }
         }
         else
@@ -140,7 +160,8 @@ template <typename T>
 void HSolverLCAO<T>::hamiltSolvePsiK(ModuleBase::MatrixBlock<T>& hk,
                                      ModuleBase::MatrixBlock<T>& sk,
                                      psi::Psi<T>& psi,
-                                     double* eigenvalue)
+                                     double* eigenvalue,
+                                     const module_rt::DdlaContext* ddla)
 {
     ModuleBase::TITLE("HSolverLCAO", "hamiltSolvePsiK");
     ModuleBase::timer::start("HSolverLCAO", "hamiltSolvePsiK");
@@ -152,6 +173,13 @@ void HSolverLCAO<T>::hamiltSolvePsiK(ModuleBase::MatrixBlock<T>& hk,
         sa.diag(hk, sk, psi, eigenvalue);
 #endif
     }
+#ifdef __DDLA
+    else if (this->method == "ddla")
+    {
+        DiagoDdla<T> dd(*ddla, this->nlocal, this->nbands);
+        dd.diag(hk, sk, psi, eigenvalue);
+    }
+#endif
 #ifdef __ELPA
     else if (this->method == "genelpa")
     {

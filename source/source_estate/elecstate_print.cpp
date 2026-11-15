@@ -59,6 +59,7 @@ void print_scf_iterinfo(const std::string& ks_solver,
            {"bpcg", "BP"},
            {"pexsi", "PE"},
            {"cusolvermp", "CM"},
+           {"ddla", "DD"},
            {"sdft", "CT"}}; // CT = Chebyshev Trace, for pure SDFT (nbands=0) where no H diagonalization is performed
     // ITER column
     std::vector<std::string> th_fmt = {" %-" + std::to_string(witer) + "s"}; // table header: th: ITER

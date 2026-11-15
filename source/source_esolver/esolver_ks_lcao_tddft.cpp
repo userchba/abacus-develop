@@ -119,8 +119,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
     if (inp.td_la_backend == "ddla")
     {
         const bool ddla_gpu = ct_device_type == ct::DeviceType::GpuDevice;
-        ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
-        ddla = &ddla_ctx_;
+        this->ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
+        ddla = &this->ddla_ctx_;
     }
 #endif
 
@@ -429,8 +429,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
     if (this->inp_->td_la_backend == "ddla")
     {
         const bool ddla_gpu = ct::DeviceTypeToEnum<Device>::value == ct::DeviceType::GpuDevice;
-        ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
-        ddla = &ddla_ctx_;
+        this->ddla_ctx_.bind(this->pv.para_2d(), ddla_gpu);
+        ddla = &this->ddla_ctx_;
     }
 #endif
 
@@ -493,6 +493,11 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
         if (this->psi != nullptr)
         {
             const bool skip_charge = false;
+            // LibDDLA handle kept for the whole run, used by ks_solver ddla.
+            module_rt::DdlaContext* ddla_context = nullptr;
+#ifdef __DDLA
+            ddla_context = &this->ddla_ctx_;
+#endif
             hsolver::HSolverLCAO<std::complex<double>> hsolver_lcao_obj(&this->pv,
                                                                         this->inp_->ks_solver,
                                                                         PARAM.globalv.kpar_lcao,
@@ -501,7 +506,8 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
                                                                         this->inp_->nelec,
                                                                         this->inp_->device == "gpu",
                                                                         GlobalV::NPROC,
-                                                                        GlobalV::MY_RANK);
+                                                                        GlobalV::MY_RANK,
+                                                                        ddla_context);
             hamilt::HamiltHSMatrix<std::complex<double>> hs(static_cast<hamilt::Hamilt<std::complex<double>>*>(this->p_hamilt));
             hsolver_lcao_obj.solve(hs, this->psi[0], this->pelec, *this->dmat.dm, this->chr, this->inp_->nspin, ucell.omega, skip_charge);
             if (this->inp_->td_stype == 2)

@@ -37,9 +37,9 @@ void ReadInput::item_elec_stru()
     // Electronic Structure
     {
         Input_Item item("ks_solver");
-        item.domain.set_choices({"cg", "dav", "bpcg", "dav_subspace", "genelpa", "elpa", "lapack", "scalapack_gvx", "cusolver", "cusolvermp", "pexsi"});
+        item.domain.set_choices({"cg", "dav", "bpcg", "dav_subspace", "genelpa", "elpa", "lapack", "scalapack_gvx", "cusolver", "cusolvermp", "pexsi", "ddla"});
         item.domain.add_requirement("basis_type==pw", "ks_solver in [cg, dav, bpcg, dav_subspace]");
-        item.domain.add_requirement("basis_type==lcao", "ks_solver in [genelpa, elpa, lapack, scalapack_gvx, cusolver, cusolvermp, pexsi]");
+        item.domain.add_requirement("basis_type==lcao", "ks_solver in [genelpa, elpa, lapack, scalapack_gvx, cusolver, cusolvermp, pexsi, ddla]");
         item.domain.add_requirement("ks_solver==genelpa", "device==cpu");
         item.annotation = "cg; dav; lapack; genelpa; elpa; scalapack_gvx; cusolver";
         item.category = "Electronic structure";
@@ -61,6 +61,7 @@ For numerical atomic orbitals basis,
 * cusolver: Use CUSOLVER to diagonalize the Hamiltonian, at least one GPU is needed.
 * cusolvermp: Use CUSOLVER to diagonalize the Hamiltonian, supporting multi-GPU devices. Note that you should set the number of MPI processes equal to the number of GPUs.
 * elpa: The ELPA solver supports both CPU and GPU. By setting the `device` to GPU, you can launch the ELPA solver with GPU acceleration (provided that you have installed a GPU-supported version of ELPA, which requires you to manually compile and install ELPA, and the ABACUS should be compiled with -DENABLE_ELPA=ON and -DUSE_CUDA=ON). The ELPA solver also supports multi-GPU acceleration.
+* ddla: Use the distributed LibDDLA solver (phegvd) on the block-cyclic process grid; H, S and the wave functions are never gathered onto one process. Requires ABACUS built with `-DENABLE_DDLA=ON`. With `device=gpu` it runs on the GPUs, one per MPI process, and LibDDLA must be built with GPU support. Only `kpar=1` is supported.
 
 If you set ks_solver=`genelpa` for basis_type=`pw`, the program will stop with an error message:
 
@@ -173,6 +174,18 @@ Then the user has to correct the input file and restart the calculation.)";
                     " Please rebuild ABACUS with cusolvermp support or change the ks_solver.";
                     ModuleBase::WARNING_QUIT("ReadInput", warningstr);
 #endif
+                    }
+                }
+                else if (ks_solver == "ddla")
+                {
+#ifndef __DDLA
+                    ModuleBase::WARNING_QUIT("ReadInput",
+                                             "ks_solver is set to ddla, but ABACUS is not built with LibDDLA.\n"
+                                             " Please rebuild ABACUS with -DENABLE_DDLA=ON or change the ks_solver.");
+#endif
+                    if (para.input.kpar > 1)
+                    {
+                        ModuleBase::WARNING_QUIT("ReadInput", "ks_solver ddla currently requires kpar 1.");
                     }
                 }
                 else if (ks_solver == "pexsi")
