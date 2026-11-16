@@ -66,7 +66,8 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
         }else 
     #endif
         if (this->kpar_lcao > 1
-            && (this->method == "genelpa" || this->method == "elpa" || this->method == "scalapack_gvx" || this->method == "lapack"))
+            && (this->method == "genelpa" || this->method == "elpa" || this->method == "scalapack_gvx" || this->method == "lapack"
+                || this->method == "ddla"))
         {
             this->parakSolve(hs, psi, pes, this->kpar_lcao, nspin);
         } else
@@ -241,6 +242,17 @@ void HSolverLCAO<T>::parakSolve(HSMatrix<T>& hs,
     int coord_col = k2d.get_p2D_pool()->icproc();
     const int pool_grid_cols = k2d.get_p2D_pool()->ncproc();
     int ncol_bands_pool = numroc_(&(nbands), &(nb2d), &coord_col, &zero, &pool_grid_cols);
+#ifdef __DDLA
+    // One LibDDLA handle on the process grid of this k-point pool serves all of
+    // its k points; it is released before the pool grid.
+    module_rt::DdlaContext pool_ddla;
+    if (this->method == "ddla")
+    {
+        ModuleBase::timer::start("HSolverLCAO", "ddla_bind");
+        pool_ddla.bind(*k2d.get_p2D_pool(), this->use_gpu);
+        ModuleBase::timer::end("HSolverLCAO", "ddla_bind");
+    }
+#endif
     /// Loop over k points for solve Hamiltonian to charge density
     for (int ik = 0; ik < k2d.get_pKpoints()->get_max_nks_pool(); ++ik)
     {
@@ -295,6 +307,13 @@ void HSolverLCAO<T>::parakSolve(HSMatrix<T>& hs,
                 DiagoLapack<T> la(this->nlocal, this->nbands);
                 la.diag_pool(hk_pool, sk_pool, psi_pool, &(pes->ekb(ik_global, 0)), k2d.POOL_WORLD_K2D);
             }
+#ifdef __DDLA
+            else if (this->method == "ddla")
+            {
+                DiagoDdla<T> dd(pool_ddla, this->nlocal, this->nbands);
+                dd.diag(hk_pool, sk_pool, psi_pool, &(pes->ekb(ik_global, 0)));
+            }
+#endif
 #ifdef __ELPA
             else if (this->method == "genelpa")
             {
@@ -343,6 +362,9 @@ void HSolverLCAO<T>::parakSolve(HSMatrix<T>& hs,
         MPI_Barrier(MPI_COMM_WORLD);
         ModuleBase::timer::end("HSolverLCAO", "collect_psi");
     }
+#ifdef __DDLA
+    pool_ddla.release();
+#endif
     k2d.unset_para_env();
     ModuleBase::timer::end("HSolverLCAO", "parakSolve");
 #endif

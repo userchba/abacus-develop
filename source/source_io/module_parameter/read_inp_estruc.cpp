@@ -61,7 +61,7 @@ For numerical atomic orbitals basis,
 * cusolver: Use CUSOLVER to diagonalize the Hamiltonian, at least one GPU is needed.
 * cusolvermp: Use CUSOLVER to diagonalize the Hamiltonian, supporting multi-GPU devices. Note that you should set the number of MPI processes equal to the number of GPUs.
 * elpa: The ELPA solver supports both CPU and GPU. By setting the `device` to GPU, you can launch the ELPA solver with GPU acceleration (provided that you have installed a GPU-supported version of ELPA, which requires you to manually compile and install ELPA, and the ABACUS should be compiled with -DENABLE_ELPA=ON and -DUSE_CUDA=ON). The ELPA solver also supports multi-GPU acceleration.
-* ddla: Use the distributed LibDDLA solver (phegvd) on the block-cyclic process grid; H, S and the wave functions are never gathered onto one process. Requires ABACUS built with `-DENABLE_DDLA=ON`. With `device=gpu` it runs on the GPUs, one per MPI process, and LibDDLA must be built with GPU support. Only `kpar=1` is supported.
+* ddla: Use the distributed LibDDLA solver (phegvd) on the block-cyclic process grid; H, S and the wave functions are never gathered onto one process. Requires ABACUS built with `-DENABLE_DDLA=ON`. With `device=gpu` it runs on the GPUs, one per MPI process, LibDDLA must be built with GPU support, and only `kpar=1` is supported. On the CPU, each k-point pool of `kpar` runs LibDDLA on its own process grid.
 
 If you set ks_solver=`genelpa` for basis_type=`pw`, the program will stop with an error message:
 
@@ -183,9 +183,12 @@ Then the user has to correct the input file and restart the calculation.)";
                                              "ks_solver is set to ddla, but ABACUS is not built with LibDDLA.\n"
                                              " Please rebuild ABACUS with -DENABLE_DDLA=ON or change the ks_solver.");
 #endif
-                    if (para.input.kpar > 1)
+                    // For LCAO, kpar has been moved to kpar_lcao by now. LibDDLA puts
+                    // the k-th process of a node on its k-th GPU within each k-point
+                    // pool, so the pools of a node would share their GPUs.
+                    if (para.input.device == "gpu" && para.sys.kpar_lcao > 1)
                     {
-                        ModuleBase::WARNING_QUIT("ReadInput", "ks_solver ddla currently requires kpar 1.");
+                        ModuleBase::WARNING_QUIT("ReadInput", "ks_solver ddla with device gpu currently requires kpar 1.");
                     }
                 }
                 else if (ks_solver == "pexsi")

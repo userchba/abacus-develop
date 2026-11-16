@@ -457,7 +457,7 @@ In socket_driver mode, this flag controls whether the returned frame advertises 
         item.type = "Integer";
         item.description = R"(Controls k-point parallelism. The value must be positive and should not exceed either the number of k-points or the number of MPI processes.
 * For PW calculations, divide all MPI processes into persistent k-point pools. Each pool stores and processes a subset of the k-points.
-* For LCAO calculations with lapack, genelpa, elpa, or scalapack_gvx, divide the diagonalization work into temporary k-point pools. After diagonalization, the eigenvalues and distributed wavefunctions are restored for all k-points before occupations, density matrices, and output are evaluated.
+* For LCAO calculations with lapack, genelpa, elpa, scalapack_gvx, or ddla (CPU only), divide the diagonalization work into temporary k-point pools. After diagonalization, the eigenvalues and distributed wavefunctions are restored for all k-points before occupations, density matrices, and output are evaluated.
 * Multi-process LCAO cusolver uses its own active-GPU distribution and does not use this value to define its k-point layout. Other LCAO eigensolvers do not use the temporary k-point-pool implementation.
 * On DSP builds, the mtblas/C_PACK libraries require kpar (kpar_lcao for LCAO) times bndpar to equal the number of MPI processes exactly; ABACUS aborts at startup otherwise.)";
         item.default_value = "1";
