@@ -2,6 +2,7 @@
 
 #include "source_base/block_cyclic_distribution.h"
 #include "source_base/matrix_block.h"
+#include "source_base/parallel_reduce.h"
 #include "source_hsolver/diago_ddla.h"
 #include "source_hsolver/unittests/diago_elpa_utils.h"
 #include "source_lcao/module_rt/ddla_context.h"
@@ -88,13 +89,6 @@ std::vector<T> local_block(const BlockCyclicDistribution& dist, const std::vecto
 }
 
 template <typename T>
-void allreduce_sum(std::vector<T>& data)
-{
-    const int count = static_cast<int>(data.size() * sizeof(T) / sizeof(double));
-    MPI_Allreduce(MPI_IN_PLACE, data.data(), count, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-}
-
-template <typename T>
 void run_case(const DiagCase& dc, const bool gpu)
 {
     int rank = 0;
@@ -150,7 +144,8 @@ void run_case(const DiagCase& dc, const bool gpu)
             c[dist.irglb(il) * nbands + dist.icglb(jl)] = psi.get_pointer()[static_cast<std::size_t>(jl) * lld + il];
         }
     }
-    allreduce_sum(c);
+    const int c_size = static_cast<int>(c.size());
+    Parallel_Reduce::reduce_all(c.data(), c_size);
 
     if (rank != 0)
     {

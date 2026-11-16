@@ -83,9 +83,7 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
             if (this->method == "ddla")
             {
                 module_rt::DdlaContext& context = (this->ddla_context != nullptr) ? *this->ddla_context : local_ddla;
-                ModuleBase::timer::start("HSolverLCAO", "ddla_bind");
                 context.bind(this->ParaV->para_2d(), this->use_gpu);
-                ModuleBase::timer::end("HSolverLCAO", "ddla_bind");
                 ddla = &context;
             }
 #endif
@@ -248,9 +246,7 @@ void HSolverLCAO<T>::parakSolve(HSMatrix<T>& hs,
     module_rt::DdlaContext pool_ddla;
     if (this->method == "ddla")
     {
-        ModuleBase::timer::start("HSolverLCAO", "ddla_bind");
         pool_ddla.bind(*k2d.get_p2D_pool(), this->use_gpu);
-        ModuleBase::timer::end("HSolverLCAO", "ddla_bind");
     }
 #endif
     /// Loop over k points for solve Hamiltonian to charge density

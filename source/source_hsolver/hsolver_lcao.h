@@ -29,7 +29,7 @@ class HSolverLCAO
                 const bool use_gpu_in,
                 const int world_nproc_in,
                 const int world_rank_in,
-                module_rt::DdlaContext* ddla_context_in = nullptr)
+                module_rt::DdlaContext* ddla_context_in)
         : ParaV(ParaV_in), method(method_in), kpar_lcao(kpar_lcao_in), nlocal(nlocal_in), nbands(nbands_in),
           nelec(nelec_in), use_gpu(use_gpu_in), world_nproc(world_nproc_in), world_rank(world_rank_in),
           ddla_context(ddla_context_in){};

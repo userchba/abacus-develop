@@ -2,9 +2,10 @@
 
 #ifdef __DDLA
 #include "source_base/block_cyclic_distribution.h"
+#include "source_base/module_device/device.h"
+#include "source_base/parallel_device.h"
+#include "source_base/timer.h"
 #include "source_base/tool_quit.h"
-
-#include <mpi.h>
 
 #include <stdexcept>
 #include <string>
@@ -15,9 +16,10 @@ namespace module_rt
 namespace
 {
 
-// LibDDLA gives the k-th MPI process of a node the GPU k % (GPUs of the
-// node). With NCCL/RCCL communication two processes must not share a GPU:
-// the collectives hang instead of failing. Collective over comm; returns an
+// LibDDLA gives the process with node-local rank k in comm the GPU
+// k % (visible GPUs). With NCCL/RCCL communication two processes must not
+// share a GPU: the collectives hang instead of failing. Collective over comm,
+// so that every process (rank 0 included) reports the error; returns an
 // error message, empty when every process has a GPU of its own.
 std::string gpu_sharing_error(const ddla::DdlaHandle_t& handle, const MPI_Comm comm)
 {
@@ -27,24 +29,18 @@ std::string gpu_sharing_error(const ddla::DdlaHandle_t& handle, const MPI_Comm c
     }
     int gpus = 0;
     ddla::DDLA_CHECK(ddla::ddlaGetDeviceCount(handle, &gpus));
-    MPI_Comm node = MPI_COMM_NULL;
-    MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &node);
-    int node_processes = 0;
-    MPI_Comm_size(node, &node_processes);
-    MPI_Comm_free(&node);
-
-    // Largest number of processes and smallest number of GPUs on any node.
-    int counts[2] = {node_processes, -gpus};
-    MPI_Allreduce(MPI_IN_PLACE, counts, 2, MPI_INT, MPI_MAX, comm);
-    const int max_processes = counts[0];
-    const int min_gpus = -counts[1];
-    if (max_processes <= min_gpus)
+    const int node_rank = base_device::information::get_node_rank_with_mpi_shared(comm);
+    // Number of processes in comm without a GPU of their own.
+    double sharing = (node_rank < gpus) ? 0.0 : 1.0;
+    Parallel_Common::reduce_data(&sharing, 1, comm);
+    if (sharing == 0.0)
     {
         return std::string();
     }
-    return "LibDDLA on GPU needs one GPU per MPI process, but a node runs " + std::to_string(max_processes)
-           + " MPI processes and has only " + std::to_string(min_gpus)
-           + " visible GPUs.\n Please run at most one MPI process per GPU on each node.";
+    const int sharing_processes = static_cast<int>(sharing);
+    return "LibDDLA on GPU needs one GPU per MPI process, but " + std::to_string(sharing_processes)
+           + " MPI process(es) have no GPU of their own: a node runs more MPI processes than its visible GPUs ("
+           + std::to_string(gpus) + " on this node).\n Please run at most one MPI process per GPU on each node.";
 }
 
 } // namespace
@@ -56,6 +52,7 @@ DdlaContext::~DdlaContext()
 
 void DdlaContext::bind(const BlockCyclicDistribution& dist, const bool use_gpu)
 {
+    ModuleBase::timer::start("DdlaContext", "bind");
     const int ictxt = dist.ictxt();
     if (ictxt < 0)
     {
@@ -63,6 +60,7 @@ void DdlaContext::bind(const BlockCyclicDistribution& dist, const bool use_gpu)
     }
     if (handle_ != nullptr && ictxt == ictxt_ && use_gpu == on_gpu_)
     {
+        ModuleBase::timer::end("DdlaContext", "bind");
         return;
     }
     release();
@@ -97,6 +95,7 @@ void DdlaContext::bind(const BlockCyclicDistribution& dist, const bool use_gpu)
     }
     ictxt_ = ictxt;
     on_gpu_ = use_gpu;
+    ModuleBase::timer::end("DdlaContext", "bind");
 }
 
 void DdlaContext::release()

@@ -252,7 +252,9 @@ void LCAO_domain::init_chg_hr(
     // Step 2: Mark HR as loaded from file (skip operator recalculation)
     p_hamilt->refresh(false);
 
-    // Step 3: Diagonalize to get wavefunctions and charge density
+    // Step 3: Diagonalize to get wavefunctions and charge density.
+    // A single solve: ks_solver ddla binds a LibDDLA handle of its own.
+    module_rt::DdlaContext* const ddla_context = nullptr;
     hsolver::HSolverLCAO<TK> hsolver_lcao_obj(pv,
                                               ks_solver,
                                               PARAM.globalv.kpar_lcao,
@@ -261,7 +263,8 @@ void LCAO_domain::init_chg_hr(
                                               PARAM.inp.nelec,
                                               PARAM.inp.device == "gpu",
                                               GlobalV::NPROC,
-                                              GlobalV::MY_RANK);
+                                              GlobalV::MY_RANK,
+                                              ddla_context);
     hamilt::HamiltHSMatrix<TK> hs(p_hamilt);
     hsolver_lcao_obj.solve(hs, psi, pelec, dm, chr, nspin, ucell.omega, 0);
 }
