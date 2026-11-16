@@ -4,10 +4,13 @@
 #include "source_basis/module_ao/parallel_orbitals.h"
 #include <complex>
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 #ifdef __MPI
 /**
 *  @brief solve propagation equation A@c(t+dt) = B@c(t)
@@ -22,7 +25,7 @@ class DdlaContext;
 * @param[out] psi_k psi of this step
 */
 void solve_propagation(const Parallel_Orbitals* pv,
-                       const DdlaContext* ddla,
+                       const ModuleBase::DdlaContext* ddla,
                         const int nband,
                         const int nlocal,
                         const double dt,
@@ -37,7 +40,7 @@ void solve_propagation(const Parallel_Orbitals* pv,
  * @param[in] P_k moving spatial gauge matrix
  */
 void solve_propagation(const Parallel_Orbitals* pv,
-                       const DdlaContext* ddla,
+                       const ModuleBase::DdlaContext* ddla,
                        const int nband,
                        const int nlocal,
                        const double dt,

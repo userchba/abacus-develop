@@ -1,11 +1,11 @@
-#ifndef ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H
-#define ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H
+#ifndef ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_DEVICE_H
+#define ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_DEVICE_H
 
 // Block-cyclic matrices in the memory of a LibDDLA handle: device memory for a
 // GPU handle, host memory for a CPU handle. Include only from source files
 // that are compiled with LibDDLA (__DDLA).
 #ifdef __DDLA
-#include "ddla_context.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/module_external/blacs_connector.h"
 #include "source_base/module_external/scalapack_connector.h"
 
@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace module_rt
+namespace ModuleBase
 {
 namespace ddla_device
 {
@@ -142,8 +142,8 @@ class BackendBlock
 };
 
 } // namespace ddla_device
-} // namespace module_rt
+} // namespace ModuleBase
 
 #endif // __DDLA
 
-#endif // ABACUS_SOURCE_LCAO_MODULE_RT_TD_DDLA_DEVICE_H
+#endif // ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_DEVICE_H

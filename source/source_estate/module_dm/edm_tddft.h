@@ -6,7 +6,7 @@
 #include "source_estate/module_dm/dm_holder.h"
 #include "source_hamilt/hamilt.h"
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
 }
@@ -14,7 +14,7 @@ class DdlaContext;
 namespace module_dm
 {
 void edm_tddft(Parallel_Orbitals& pv,
-                   const module_rt::DdlaContext* ddla,
+                   const ModuleBase::DdlaContext* ddla,
                    Setup_DM<std::complex<double>>& dmat,
                    K_Vectors& kv,
                    hamilt::Hamilt<std::complex<double>>* p_hamilt);

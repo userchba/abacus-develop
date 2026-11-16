@@ -6,8 +6,8 @@
 #include "source_base/tool_quit.h"
 
 #ifdef __DDLA
-#include "ddla_context.h"
-#include "td_ddla_device.h"
+#include "source_base/module_external/ddla_context.h"
+#include "source_base/module_external/ddla_device.h"
 #endif
 
 #include <algorithm>
@@ -18,8 +18,12 @@
 
 namespace module_rt
 {
+#ifdef __DDLA
+namespace ddla_device = ModuleBase::ddla_device;
+#endif
+
 #ifdef __MPI
-bool evolve_psi_ddla_device_available(const DdlaContext* ddla, const int propagator)
+bool evolve_psi_ddla_device_available(const ModuleBase::DdlaContext* ddla, const int propagator)
 {
 #ifdef __DDLA
     return ddla != nullptr && ddla->on_gpu() && propagator == 0;
@@ -31,7 +35,7 @@ bool evolve_psi_ddla_device_available(const DdlaContext* ddla, const int propaga
 void evolve_psi_ddla_device(const int nband,
                             const int nlocal,
                             const Parallel_Orbitals* pv,
-                            const DdlaContext& ddla,
+                            const ModuleBase::DdlaContext& ddla,
                             const double td_dt,
                             const std::complex<double>* h_mat,
                             const std::complex<double>* s_mat,

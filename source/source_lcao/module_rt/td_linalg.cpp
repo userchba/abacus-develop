@@ -4,9 +4,9 @@
 #include "source_base/tool_quit.h"
 
 #ifdef __DDLA
-#include "ddla_context.h"
 #include "source_base/block_cyclic_distribution.h"
-#include "td_ddla_device.h"
+#include "source_base/module_external/ddla_context.h"
+#include "source_base/module_external/ddla_device.h"
 
 #include <ddla/ddla.h>
 
@@ -21,8 +21,8 @@ namespace module_rt
 #ifdef __DDLA
 namespace
 {
-using ComplexBlock = ddla_device::BackendBlock<std::complex<double>>;
-using ConstComplexBlock = ddla_device::BackendBlock<const std::complex<double>>;
+using ComplexBlock = ModuleBase::ddla_device::BackendBlock<std::complex<double>>;
+using ConstComplexBlock = ModuleBase::ddla_device::BackendBlock<const std::complex<double>>;
 
 void quit_on_ddla_error(const char* where, const std::exception& e)
 {
@@ -32,7 +32,7 @@ void quit_on_ddla_error(const char* where, const std::exception& e)
 } // namespace
 #endif // __DDLA
 
-void td_gemm(const DdlaContext* ddla,
+void td_gemm(const ModuleBase::DdlaContext* ddla,
              const char transa,
              const char transb,
              const int m,
@@ -70,7 +70,7 @@ void td_gemm(const DdlaContext* ddla,
 #endif // __DDLA
 }
 
-void td_geadd(const DdlaContext* ddla,
+void td_geadd(const ModuleBase::DdlaContext* ddla,
               const char trans,
               const int m,
               const int n,
@@ -123,7 +123,7 @@ void td_geadd(const DdlaContext* ddla,
 #endif // __DDLA
 }
 
-void td_ddla_getrf(const DdlaContext& ddla,
+void td_ddla_getrf(const ModuleBase::DdlaContext& ddla,
                    const BlockCyclicDistribution& dist,
                    std::complex<double>* A,
                    std::vector<int>& ipiv)
@@ -153,7 +153,7 @@ void td_ddla_getrf(const DdlaContext& ddla,
 #endif // __DDLA
 }
 
-void td_ddla_getrs(const DdlaContext& ddla,
+void td_ddla_getrs(const ModuleBase::DdlaContext& ddla,
                    const BlockCyclicDistribution& dist,
                    const char side,
                    const int nrhs,

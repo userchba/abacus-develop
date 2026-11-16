@@ -82,6 +82,11 @@ add_library(
   ${LIBM_SRC})
 
 target_link_libraries(base PUBLIC container)
+if(ENABLE_DDLA)
+  # LibDDLA handle on a BLACS grid, shared by ks_solver ddla and RT-TDDFT.
+  target_sources(base PRIVATE module_external/ddla_context.cpp)
+  target_link_libraries(base PUBLIC ddla::ddla)
+endif()
 add_subdirectory(module_container)
 
 if(ENABLE_COVERAGE)

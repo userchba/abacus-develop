@@ -2,10 +2,10 @@
 
 #include "source_base/block_cyclic_distribution.h"
 #include "source_base/matrix_block.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/parallel_reduce.h"
 #include "source_hsolver/diago_ddla.h"
 #include "source_hsolver/unittests/diago_elpa_utils.h"
-#include "source_lcao/module_rt/ddla_context.h"
 #include "source_psi/psi.h"
 
 #include <ddla/ddla.h>
@@ -126,7 +126,7 @@ void run_case(const DiagCase& dc, const bool gpu)
     psi::Psi<T> psi;
     psi.resize(1, std::max(ncol_bands, 1), lld);
 
-    module_rt::DdlaContext ddla;
+    ModuleBase::DdlaContext ddla;
     ddla.bind(dist, gpu);
     std::vector<double> e(nbands, 0.0);
     hsolver::DiagoDdla<T> solver(ddla, n, nbands);

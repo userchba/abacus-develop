@@ -106,7 +106,7 @@ void ekb_from_eij(const Parallel_Orbitals* pv,
 }
 
 void compute_ekb(const Parallel_Orbitals* pv,
-                 const DdlaContext* ddla,
+                 const ModuleBase::DdlaContext* ddla,
                  const int nband,
                  const int nlocal,
                  const std::complex<double>* Htmp,

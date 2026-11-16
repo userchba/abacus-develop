@@ -3,7 +3,7 @@
 #include "esolver_ks.h"
 #include "esolver_ks_lcao.h"
 #include "source_base/module_container/ATen/core/tensor.h" // ct::Tensor
-#include "source_lcao/module_rt/ddla_context.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_lcao/module_rt/td_info.h"
 #include "source_lcao/module_rt/td_moving_gauge.h"
 #include "source_lcao/module_rt/velocity_op.h"

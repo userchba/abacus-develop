@@ -132,8 +132,7 @@ if(ENABLE_MPI)
       addtest(
         TARGET MODULE_HSOLVER_LCAO_ddla
         LIBS parameter base psi device ddla::ddla
-        SOURCES test_diago_ddla.cpp ../diago_ddla.cpp
-                ../../source_lcao/module_rt/ddla_context.cpp)
+        SOURCES test_diago_ddla.cpp ../diago_ddla.cpp)
       set_tests_properties(
         MODULE_HSOLVER_LCAO_ddla
         PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"

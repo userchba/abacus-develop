@@ -7,14 +7,17 @@
 #include <complex>
 #include <fstream>
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 #ifdef __MPI
 //! Whether evolve_psi_ddla_device can run this step: a GPU LibDDLA context
 //! and the Crank-Nicolson propagator (td_propagator 0).
-bool evolve_psi_ddla_device_available(const DdlaContext* ddla, const int propagator);
+bool evolve_psi_ddla_device_available(const ModuleBase::DdlaContext* ddla, const int propagator);
 
 /**
  *  @brief evolve psi by one Crank-Nicolson step with all matrices kept on the GPU
@@ -41,7 +44,7 @@ bool evolve_psi_ddla_device_available(const DdlaContext* ddla, const int propaga
 void evolve_psi_ddla_device(const int nband,
                             const int nlocal,
                             const Parallel_Orbitals* pv,
-                            const DdlaContext& ddla,
+                            const ModuleBase::DdlaContext& ddla,
                             const double td_dt,
                             const std::complex<double>* h_mat,
                             const std::complex<double>* s_mat,

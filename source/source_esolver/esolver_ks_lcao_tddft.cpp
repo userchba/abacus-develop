@@ -114,7 +114,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::before_all_runners(BaseCell& basecell, c
     ESolver_KS_LCAO<std::complex<double>, TR>::before_all_runners(ucell, inp);
     this->pelec->pot->set_td_field_manager(td_field_manager_);
     // LibDDLA context for TD linear algebra, or nullptr for the default backend.
-    const module_rt::DdlaContext* ddla = nullptr;
+    const ModuleBase::DdlaContext* ddla = nullptr;
 #ifdef __DDLA
     if (inp.td_la_backend == "ddla")
     {
@@ -424,7 +424,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
     }
 
     // LibDDLA handle for the propagation, or nullptr for the default backend.
-    const module_rt::DdlaContext* ddla = nullptr;
+    const ModuleBase::DdlaContext* ddla = nullptr;
 #ifdef __DDLA
     if (this->inp_->td_la_backend == "ddla")
     {
@@ -494,7 +494,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::hamilt2rho_single(UnitCell& ucell, const
         {
             const bool skip_charge = false;
             // LibDDLA handle kept for the whole run, used by ks_solver ddla.
-            module_rt::DdlaContext* ddla_context = nullptr;
+            ModuleBase::DdlaContext* ddla_context = nullptr;
 #ifdef __DDLA
             ddla_context = &this->ddla_ctx_;
 #endif
@@ -586,7 +586,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::iter_finish(UnitCell& ucell,
         }
         else
         {
-            const module_rt::DdlaContext* ddla = td_p->ddla();
+            const ModuleBase::DdlaContext* ddla = td_p->ddla();
             module_dm::edm_tddft(this->pv, ddla, this->dmat, this->kv, static_cast<hamilt::Hamilt<std::complex<double>>*>(this->p_hamilt));
         }
     }

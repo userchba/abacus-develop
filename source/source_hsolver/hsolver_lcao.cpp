@@ -28,7 +28,7 @@
 
 #ifdef __DDLA
 #include "diago_ddla.h"
-#include "source_lcao/module_rt/ddla_context.h"
+#include "source_base/module_external/ddla_context.h"
 #endif
 
 #include "source_base/module_device/device.h"
@@ -74,15 +74,15 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
     #endif
         if (this->kpar_lcao == 1)
         {
-            const module_rt::DdlaContext* ddla = nullptr;
+            const ModuleBase::DdlaContext* ddla = nullptr;
 #ifdef __DDLA
             // One LibDDLA handle on the grid of H(k) and S(k) serves every k point.
             // The caller's handle also serves its later solves; binding it again
             // to the same grid keeps the existing handle.
-            module_rt::DdlaContext local_ddla;
+            ModuleBase::DdlaContext local_ddla;
             if (this->method == "ddla")
             {
-                module_rt::DdlaContext& context = (this->ddla_context != nullptr) ? *this->ddla_context : local_ddla;
+                ModuleBase::DdlaContext& context = (this->ddla_context != nullptr) ? *this->ddla_context : local_ddla;
                 context.bind(this->ParaV->para_2d(), this->use_gpu);
                 ddla = &context;
             }
@@ -160,7 +160,7 @@ void HSolverLCAO<T>::hamiltSolvePsiK(ModuleBase::MatrixBlock<T>& hk,
                                      ModuleBase::MatrixBlock<T>& sk,
                                      psi::Psi<T>& psi,
                                      double* eigenvalue,
-                                     const module_rt::DdlaContext* ddla)
+                                     const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("HSolverLCAO", "hamiltSolvePsiK");
     ModuleBase::timer::start("HSolverLCAO", "hamiltSolvePsiK");
@@ -243,7 +243,7 @@ void HSolverLCAO<T>::parakSolve(HSMatrix<T>& hs,
 #ifdef __DDLA
     // One LibDDLA handle on the process grid of this k-point pool serves all of
     // its k points; it is released before the pool grid.
-    module_rt::DdlaContext pool_ddla;
+    ModuleBase::DdlaContext pool_ddla;
     if (this->method == "ddla")
     {
         pool_ddla.bind(*k2d.get_p2D_pool(), this->use_gpu);

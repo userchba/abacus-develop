@@ -115,3 +115,22 @@ add_test(
   COMMAND ${BASH} blacs_connector_test.sh
           "$<TARGET_FILE:MODULE_BASE_blacs_connector>"
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+if(ENABLE_DDLA)
+  addtest(
+    TARGET MODULE_BASE_ddla_context
+    LIBS parameter base device ddla::ddla
+    SOURCES test_ddla_context.cpp)
+  foreach(rank_count IN ITEMS 2 4 6)
+    add_test(
+      NAME MODULE_BASE_ddla_context_np${rank_count}
+      COMMAND
+        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_BASE_ddla_context> ${MPIEXEC_POSTFLAGS}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set_tests_properties(
+      MODULE_BASE_ddla_context_np${rank_count}
+      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  endforeach()
+endif()

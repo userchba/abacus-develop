@@ -20,7 +20,7 @@ void Propagator::compute_propagator_ddla(const int nlocal,
                                          const std::complex<double>* Htmp,
                                          const std::complex<double>* H_laststep,
                                          std::complex<double>* U_operator,
-                                         const DdlaContext& ddla,
+                                         const ModuleBase::DdlaContext& ddla,
                                          std::ofstream& ofs_running,
                                          const int print_matrix) const
 {
@@ -46,7 +46,7 @@ void Propagator::compute_propagator_cn2_ddla(const int nlocal,
                                              const std::complex<double>* Stmp,
                                              const std::complex<double>* Htmp,
                                              std::complex<double>* U_operator,
-                                             const DdlaContext& ddla,
+                                             const ModuleBase::DdlaContext& ddla,
                                              std::ofstream& ofs_running,
                                              const int print_matrix) const
 {

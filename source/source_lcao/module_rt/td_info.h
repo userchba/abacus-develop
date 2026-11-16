@@ -8,7 +8,7 @@
 #include "source_lcao/module_ri/abfs_vector3_order.h"
 
 #include <map>
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
 }
@@ -21,7 +21,7 @@ class TD_info
             const Parallel_Orbitals& pv,
             const LCAO_Orbitals& orb,
             const elecstate::TDFieldManager& field_manager,
-            const module_rt::DdlaContext* ddla);
+            const ModuleBase::DdlaContext* ddla);
     ~TD_info();
 
     /// @brief switch to control the output of HR
@@ -40,7 +40,7 @@ class TD_info
     const elecstate::TDFieldManager& field() const { return field_manager_; }
 
     /** @brief LibDDLA context for TD linear algebra, or nullptr for the default backend. */
-    const module_rt::DdlaContext* ddla() const { return ddla_; }
+    const ModuleBase::DdlaContext* ddla() const { return ddla_; }
 
     /** @brief Read the current endpoint directly from the shared field manager. */
     const ModuleBase::Vector3<double>& endpoint_A() const;
@@ -91,7 +91,7 @@ class TD_info
 
   private:
     const elecstate::TDFieldManager& field_manager_;
-    const module_rt::DdlaContext* ddla_ = nullptr;
+    const ModuleBase::DdlaContext* ddla_ = nullptr;
     /// @brief lattice vectors, used to calculate the extra phase for hybrid gauge
     ModuleBase::Vector3<double> a1, a2, a3;
     double lat0;

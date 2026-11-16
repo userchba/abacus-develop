@@ -12,10 +12,13 @@
 
 #include <complex>
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 #ifdef __MPI
 /**
  *  @brief turn the band overlap psi^H S psi into the normalization factors
@@ -42,7 +45,7 @@ void norm_psi_scaling(const Parallel_Orbitals* pv, const int nband, std::complex
  * @param[out] psi_k psi of this step after normalization
  */
 void norm_psi(const Parallel_Orbitals* pv,
-              const DdlaContext* ddla,
+              const ModuleBase::DdlaContext* ddla,
               const int nband,
               const int nlocal,
               const std::complex<double>* Stmp,

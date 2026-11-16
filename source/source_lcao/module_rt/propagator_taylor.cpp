@@ -23,7 +23,7 @@ void Propagator::compute_propagator_taylor(const int nlocal,
                                            std::ofstream& ofs_running,
                                            const int print_matrix,
                                            const int tag,
-                                           const DdlaContext* ddla) const
+                                           const ModuleBase::DdlaContext* ddla) const
 {
     assert(this->ParaV->para_2d().size() > 0);
 

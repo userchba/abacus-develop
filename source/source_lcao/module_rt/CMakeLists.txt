@@ -25,8 +25,7 @@ if(ENABLE_LCAO)
     solve_propagation.cpp
     boundary_fix.cpp
     td_moving_gauge.cpp
-    force_rt_overlap.cpp
-    ddla_context.cpp)
+    force_rt_overlap.cpp)
 
   if(USE_CUDA)
     list(APPEND objects kernels/cuda/snap_psibeta_kernel.cu

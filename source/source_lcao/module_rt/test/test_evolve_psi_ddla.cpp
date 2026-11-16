@@ -1,7 +1,7 @@
 #ifdef __DDLA
 
-#include "../ddla_context.h"
 #include "../evolve_psi.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/parallel_reduce.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
 
@@ -175,12 +175,12 @@ TEST_P(EvolvePsiDdlaTest, CrankNicolsonStepMatchesScalapack)
 
     std::vector<Complex> psi_ref(len_psi, Complex(0.0, 0.0));
     std::vector<double> ekb_ref(nband, 0.0);
-    const module_rt::DdlaContext* scalapack = nullptr;
+    const ModuleBase::DdlaContext* scalapack = nullptr;
     module_rt::evolve_psi(nband, nlocal, &pv, &hamiltonian, psi_ref.data(), psi_last.data(), h_last.data(),
                           s_last.data(), nullptr, use_td_moving_gauge, ekb_ref.data(), propagator, scalapack, log,
                           print_matrix, output_info);
 
-    module_rt::DdlaContext ddla;
+    ModuleBase::DdlaContext ddla;
     ddla.bind(dist, use_gpu);
     std::vector<Complex> psi_ddla(len_psi, Complex(0.0, 0.0));
     std::vector<double> ekb_ddla(nband, 0.0);

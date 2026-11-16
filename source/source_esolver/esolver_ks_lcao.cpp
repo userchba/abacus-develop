@@ -607,7 +607,7 @@ void ESolver_KS_LCAO<TK, TR>::hamilt2rho_single(UnitCell& ucell, int istep, int 
     if (!skip_solve)
     {
         // LibDDLA handle kept for the whole run, used by ks_solver ddla.
-        module_rt::DdlaContext* ddla_context = nullptr;
+        ModuleBase::DdlaContext* ddla_context = nullptr;
 #ifdef __DDLA
         ddla_context = &this->ddla_ctx_;
 #endif

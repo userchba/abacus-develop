@@ -12,10 +12,13 @@
 #include "source_lcao/module_rt/band_energy.h"
 #include "source_lcao/module_rt/kernels/cublasmp_context.h"
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 void evolve_psi(const int nband,
                 const int nlocal,
                 const Parallel_Orbitals* pv,
@@ -28,7 +31,7 @@ void evolve_psi(const int nband,
                 const bool use_td_moving_gauge,
                 double* ekb,
                 int propagator,
-                const DdlaContext* ddla,
+                const ModuleBase::DdlaContext* ddla,
                 std::ofstream& ofs_running,
                 const int print_matrix,
                 const EijOutputInfo& output_info);

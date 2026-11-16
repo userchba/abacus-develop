@@ -13,10 +13,13 @@
 
 #include <complex>
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 //--------------------------------- Utility function ---------------------------------//
 #ifdef __MPI
 inline int globalIndex(int localindex, int nblk, int nprocs, int myproc)
@@ -152,7 +155,7 @@ class Propagator
                                  const std::complex<double>* Htmp,
                                  const std::complex<double>* H_laststep,
                                  std::complex<double>* U_operator,
-                                 const DdlaContext& ddla,
+                                 const ModuleBase::DdlaContext& ddla,
                                  std::ofstream& ofs_running,
                                  const int print_matrix) const;
     template <typename Device>
@@ -217,7 +220,7 @@ class Propagator
                                      const std::complex<double>* Stmp,
                                      const std::complex<double>* Htmp,
                                      std::complex<double>* U_operator,
-                                     const DdlaContext& ddla,
+                                     const ModuleBase::DdlaContext& ddla,
                                      std::ofstream& ofs_running,
                                      const int print_matrix) const;
     /**
@@ -238,7 +241,7 @@ class Propagator
                                    std::ofstream& ofs_running,
                                    const int print_matrix,
                                    const int tag,
-                                   const DdlaContext* ddla) const;
+                                   const ModuleBase::DdlaContext* ddla) const;
 
     /**
      *  @brief compute propagator of method ETRS
@@ -258,7 +261,7 @@ class Propagator
                                  std::complex<double>* U_operator,
                                  std::ofstream& ofs_running,
                                  const int print_matrix,
-                                 const DdlaContext* ddla) const;
+                                 const ModuleBase::DdlaContext* ddla) const;
 #endif // __MPI
 };
 } // namespace module_rt

@@ -1,6 +1,6 @@
 #ifdef __DDLA
 
-#include "../ddla_context.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/block_cyclic_distribution.h"
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_base/parallel_reduce.h"
@@ -18,7 +18,7 @@
 #include <vector>
 
 /************************************************
- *  unit test of module_rt::DdlaContext
+ *  unit test of ModuleBase::DdlaContext
  ***********************************************/
 
 /**
@@ -97,7 +97,7 @@ TEST_F(DdlaContextTest, BindReusesHandleOnSameGrid)
     const bool swap_grid = false;
     dist.init(n, n, nb, MPI_COMM_WORLD, swap_grid);
 
-    module_rt::DdlaContext ctx;
+    ModuleBase::DdlaContext ctx;
     EXPECT_FALSE(ctx.is_bound());
     ctx.bind(dist, false);
     ASSERT_TRUE(ctx.is_bound());
@@ -125,7 +125,7 @@ TEST_F(DdlaContextTest, BindsGpuHandle)
     const bool swap_grid = false;
     dist.init(n, n, nb, MPI_COMM_WORLD, swap_grid);
 
-    module_rt::DdlaContext ctx;
+    ModuleBase::DdlaContext ctx;
     ctx.bind(dist, true);
     ASSERT_TRUE(ctx.is_bound());
     EXPECT_TRUE(ctx.on_gpu());
@@ -152,7 +152,7 @@ TEST_P(DdlaContextPgemmTest, PgemmMatchesScalapack)
 
     BlockCyclicDistribution dist;
     dist.init(n, n, nb, MPI_COMM_WORLD, swap_grid);
-    module_rt::DdlaContext ctx;
+    ModuleBase::DdlaContext ctx;
     ctx.bind(dist, false);
 
     const std::vector<std::complex<double>> a = fill_local(dist, 1);

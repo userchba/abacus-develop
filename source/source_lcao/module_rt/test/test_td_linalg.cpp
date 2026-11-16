@@ -1,7 +1,7 @@
 #ifdef __DDLA
 
-#include "../ddla_context.h"
 #include "../td_linalg.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_base/parallel_reduce.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
@@ -125,7 +125,7 @@ class TdLinalgTest : public testing::TestWithParam<std::tuple<std::tuple<int, in
     int nband = 0;
     double tol = 0.0;
     Parallel_Orbitals pv;
-    module_rt::DdlaContext ddla;
+    ModuleBase::DdlaContext ddla;
 };
 
 TEST_P(TdLinalgTest, GemmMatchesScalapack)
@@ -135,7 +135,7 @@ TEST_P(TdLinalgTest, GemmMatchesScalapack)
     const std::vector<Complex> psi = fill_local(dist, nlocal, nband, 2);
     const Complex one(1.0, 0.0);
     const Complex zero(0.0, 0.0);
-    const module_rt::DdlaContext* scalapack = nullptr;
+    const ModuleBase::DdlaContext* scalapack = nullptr;
 
     // tmp = H * psi
     std::vector<Complex> tmp_ref(h.size(), zero);
@@ -173,7 +173,7 @@ TEST_P(TdLinalgTest, GeaddMatchesScalapack)
     std::vector<Complex> h_ddla = h_ref;
     const Complex half(0.5, 0.0);
     const Complex coef(0.25, -0.75);
-    const module_rt::DdlaContext* scalapack = nullptr;
+    const ModuleBase::DdlaContext* scalapack = nullptr;
 
     module_rt::td_geadd(scalapack, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ref.data(),
                         dist.desc());
@@ -240,7 +240,7 @@ TEST_P(TdLinalgTest, GetrsMatchesScalapack)
     std::vector<Complex> x_right = h;
     module_rt::td_ddla_getrs(ddla, dist, right, nlocal, s_lu.data(), ipiv, x_right.data(), dist.desc());
     std::vector<Complex> residual = h;
-    const module_rt::DdlaContext* scalapack = nullptr;
+    const ModuleBase::DdlaContext* scalapack = nullptr;
     module_rt::td_gemm(scalapack, 'N', 'N', nlocal, nlocal, nlocal, one, x_right.data(), dist.desc(), s.data(),
                        dist.desc(), minus_one, residual.data(), dist.desc());
     const std::vector<Complex> zeros(residual.size(), Complex(0.0, 0.0));

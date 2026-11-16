@@ -22,7 +22,7 @@ void cal_foverlap_rt(ModuleBase::matrix& foverlap,
 
     TD_info* td_info = &td_state;
     // LibDDLA context for the matrix algebra, or nullptr for ScaLAPACK.
-    const module_rt::DdlaContext* ddla = td_state.ddla();
+    const ModuleBase::DdlaContext* ddla = td_state.ddla();
     // get dS/dR_{x,y,z}
     std::vector<hamilt::HContainer<double>*> dsxr = td_info->get_grad_overlap();
     // allocate matrix

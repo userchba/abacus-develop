@@ -1,11 +1,11 @@
 #include "diago_ddla.h"
 
 #ifdef __DDLA
+#include "source_base/module_external/ddla_context.h"
+#include "source_base/module_external/ddla_device.h"
 #include "source_base/timer.h"
 #include "source_base/tool_quit.h"
 #include "source_base/tool_title.h"
-#include "source_lcao/module_rt/ddla_context.h"
-#include "source_lcao/module_rt/td_ddla_device.h"
 
 #include <ddla/ddla.h>
 
@@ -44,8 +44,8 @@ void DiagoDdla<T>::diag(ModuleBase::MatrixBlock<T>& h_mat,
         // on copies of H and S in the handle's memory (device memory for a GPU
         // handle). The eigenvectors overwrite the copy of H; their leading nbands
         // columns are copied to psi.
-        ddla::vector<T> h_work = module_rt::ddla_device::to_device(handle, h_mat.p, desc);
-        ddla::vector<T> s_work = module_rt::ddla_device::to_device(handle, s_mat.p, desc);
+        ddla::vector<T> h_work = ModuleBase::ddla_device::to_device(handle, h_mat.p, desc);
+        ddla::vector<T> s_work = ModuleBase::ddla_device::to_device(handle, s_mat.p, desc);
         ddla::phegvd(handle,
                      jobz,
                      uplo,
@@ -61,7 +61,7 @@ void DiagoDdla<T>::diag(ModuleBase::MatrixBlock<T>& h_mat,
                      info);
         if (info == 0)
         {
-            module_rt::ddla_device::to_host(handle, psi.get_pointer(), h_work, desc_psi);
+            ModuleBase::ddla_device::to_host(handle, psi.get_pointer(), h_work, desc_psi);
         }
     }
     catch (const std::exception& e)

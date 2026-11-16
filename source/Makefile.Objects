@@ -150,6 +150,7 @@ OBJS_BASE=assoc_laguerre.o\
     blas_connector_base.o\
     blas_connector_vector.o\
     blas_connector_matrix.o\
+    ddla_context.o\
     complexarray.o\
     complexmatrix.o\
     clebsch_gordan_coeff.o\
@@ -886,7 +887,6 @@ OBJS_LCAO=evolve_elec.o\
       solve_propagation.o\
       boundary_fix.o\
       upsi.o\
-      ddla_context.o\
       force_stress_lcao.o\
       force_stress_assemble.o\
       force_stress_terms.o\

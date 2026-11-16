@@ -1,8 +1,8 @@
 #ifdef __DDLA
 
-#include "../ddla_context.h"
 #include "../propagator.h"
 #include "source_base/constants.h"
+#include "source_base/module_external/ddla_context.h"
 #include "source_base/parallel_reduce.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
 
@@ -129,7 +129,7 @@ TEST_P(PropagatorDdlaTest, MatchesScalapack)
     Parallel_Orbitals pv;
     pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
     const BlockCyclicDistribution& dist = pv.para_2d();
-    module_rt::DdlaContext ddla;
+    ModuleBase::DdlaContext ddla;
     ddla.bind(dist, use_gpu);
 
     // S is Hermitian positive definite (close to I); H is Hermitian.

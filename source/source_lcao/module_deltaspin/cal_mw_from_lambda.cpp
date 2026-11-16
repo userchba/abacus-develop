@@ -109,7 +109,7 @@ void spinconstrain::SpinConstrain<std::complex<double>>::cal_mw_from_lambda(
         psi::Psi<std::complex<double>>* psi_t = static_cast<psi::Psi<std::complex<double>>*>(this->psi);
         hamilt::Hamilt<std::complex<double>>* hamilt_t = static_cast<hamilt::Hamilt<std::complex<double>>*>(this->p_hamilt);
         // ks_solver ddla binds a LibDDLA handle of its own for each lambda step.
-        module_rt::DdlaContext* const ddla_context = nullptr;
+        ModuleBase::DdlaContext* const ddla_context = nullptr;
         hsolver::HSolverLCAO<std::complex<double>> hsolver_t(this->ParaV,
                                                              PARAM.inp.ks_solver,
                                                              PARAM.globalv.kpar_lcao,

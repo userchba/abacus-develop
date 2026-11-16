@@ -69,7 +69,7 @@ void norm_psi_scaling(const Parallel_Orbitals* pv, const int nband, std::complex
 }
 
 void norm_psi(const Parallel_Orbitals* pv,
-              const DdlaContext* ddla,
+              const ModuleBase::DdlaContext* ddla,
               const int nband,
               const int nlocal,
               const std::complex<double>* Stmp,

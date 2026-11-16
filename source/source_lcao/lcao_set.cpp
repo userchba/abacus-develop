@@ -254,7 +254,7 @@ void LCAO_domain::init_chg_hr(
 
     // Step 3: Diagonalize to get wavefunctions and charge density.
     // A single solve: ks_solver ddla binds a LibDDLA handle of its own.
-    module_rt::DdlaContext* const ddla_context = nullptr;
+    ModuleBase::DdlaContext* const ddla_context = nullptr;
     hsolver::HSolverLCAO<TK> hsolver_lcao_obj(pv,
                                               ks_solver,
                                               PARAM.globalv.kpar_lcao,

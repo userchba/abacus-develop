@@ -20,7 +20,7 @@ void Propagator::compute_propagator_etrs(const int nlocal,
                                          std::complex<double>* U_operator,
                                          std::ofstream& ofs_running,
                                          const int print_matrix,
-                                         const DdlaContext* ddla) const
+                                         const ModuleBase::DdlaContext* ddla) const
 {
     std::vector<std::complex<double>> U1(this->ParaV->para_2d().size());
     std::vector<std::complex<double>> U2(this->ParaV->para_2d().size());

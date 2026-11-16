@@ -13,7 +13,7 @@ TD_info::TD_info(const UnitCell* ucell_in,
                  const Parallel_Orbitals& pv,
                  const LCAO_Orbitals& orb,
                  const elecstate::TDFieldManager& field_manager,
-                 const module_rt::DdlaContext* ddla)
+                 const ModuleBase::DdlaContext* ddla)
     : field_manager_(field_manager), ddla_(ddla)
 {
     if (out_current == 2 || field_manager_.gauge() == 2)

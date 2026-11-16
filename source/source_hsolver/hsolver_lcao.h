@@ -8,7 +8,7 @@
 #include "source_estate/module_charge/charge.h" // mohan add 20251024
 #include "source_estate/module_dm/density_matrix.h" // mohan add 20251103
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
 }
@@ -29,7 +29,7 @@ class HSolverLCAO
                 const bool use_gpu_in,
                 const int world_nproc_in,
                 const int world_rank_in,
-                module_rt::DdlaContext* ddla_context_in)
+                ModuleBase::DdlaContext* ddla_context_in)
         : ParaV(ParaV_in), method(method_in), kpar_lcao(kpar_lcao_in), nlocal(nlocal_in), nbands(nbands_in),
           nelec(nelec_in), use_gpu(use_gpu_in), world_nproc(world_nproc_in), world_rank(world_rank_in),
           ddla_context(ddla_context_in){};
@@ -50,7 +50,7 @@ class HSolverLCAO
                          ModuleBase::MatrixBlock<TK>& sk,
                          psi::Psi<TK>& psi,
                          double* eigenvalue,
-                         const module_rt::DdlaContext* ddla); // for kpar_lcao == 1
+                         const ModuleBase::DdlaContext* ddla); // for kpar_lcao == 1
 
     void parakSolve(HSMatrix<TK>& hs,
                     psi::Psi<TK>& psi,
@@ -77,7 +77,7 @@ class HSolverLCAO
 
     /// LibDDLA handle owned by the caller for ks_solver ddla, kept across solves
     /// on the grid of ParaV; nullptr makes each solve bind a handle of its own.
-    module_rt::DdlaContext* const ddla_context;
+    ModuleBase::DdlaContext* const ddla_context;
 };
 
 } // namespace hsolver

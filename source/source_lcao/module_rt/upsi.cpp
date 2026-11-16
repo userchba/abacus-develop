@@ -12,7 +12,7 @@ namespace module_rt
 {
 #ifdef __MPI
 void upsi(const Parallel_Orbitals* pv,
-          const DdlaContext* ddla,
+          const ModuleBase::DdlaContext* ddla,
           const int nband,
           const int nlocal,
           const std::complex<double>* U_operator,

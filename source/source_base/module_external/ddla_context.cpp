@@ -1,4 +1,4 @@
-#include "ddla_context.h"
+#include "source_base/module_external/ddla_context.h"
 
 #ifdef __DDLA
 #include "source_base/block_cyclic_distribution.h"
@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace module_rt
+namespace ModuleBase
 {
 
 namespace
@@ -119,6 +119,6 @@ const ddla::DdlaHandle_t& DdlaContext::handle() const
     return handle_;
 }
 
-} // namespace module_rt
+} // namespace ModuleBase
 
 #endif // __DDLA

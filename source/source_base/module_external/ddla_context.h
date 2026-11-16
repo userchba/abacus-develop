@@ -1,12 +1,12 @@
-#ifndef ABACUS_SOURCE_LCAO_MODULE_RT_DDLA_CONTEXT_H
-#define ABACUS_SOURCE_LCAO_MODULE_RT_DDLA_CONTEXT_H
+#ifndef ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_CONTEXT_H
+#define ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_CONTEXT_H
 
 #ifdef __DDLA
 #include <ddla/ddla_handle_t.h>
 
 class BlockCyclicDistribution;
 
-namespace module_rt
+namespace ModuleBase
 {
 
 //! Owns one LibDDLA handle bound to the process grid of a block-cyclic
@@ -59,8 +59,8 @@ class DdlaContext
     bool on_gpu_ = false;
 };
 
-} // namespace module_rt
+} // namespace ModuleBase
 
 #endif // __DDLA
 
-#endif // ABACUS_SOURCE_LCAO_MODULE_RT_DDLA_CONTEXT_H
+#endif // ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_CONTEXT_H

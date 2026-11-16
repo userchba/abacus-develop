@@ -6,7 +6,7 @@
 #include "source_base/matrix_block.h"
 #include "source_psi/psi.h"
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
 }
@@ -27,7 +27,7 @@ class DiagoDdla
     /// @param ddla_in LibDDLA handle bound to the process grid of H and S
     /// @param nlocal_in global dimension of the NAO Hamiltonian
     /// @param nbands_in number of lowest eigenpairs to compute
-    DiagoDdla(const module_rt::DdlaContext& ddla_in, const int nlocal_in, const int nbands_in)
+    DiagoDdla(const ModuleBase::DdlaContext& ddla_in, const int nlocal_in, const int nbands_in)
         : ddla(ddla_in), nlocal(nlocal_in), nbands(nbands_in)
     {
     }
@@ -41,7 +41,7 @@ class DiagoDdla
               Real* eigenvalue_in);
 
   private:
-    const module_rt::DdlaContext& ddla;
+    const ModuleBase::DdlaContext& ddla;
     const int nlocal;
     const int nbands;
 };

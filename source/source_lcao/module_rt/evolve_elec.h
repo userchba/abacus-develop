@@ -134,10 +134,13 @@ inline void print_tensor_data<std::complex<double>>(const ct::Tensor& tensor, co
 
 //------------------------ Debugging utility function ------------------------//
 
-namespace module_rt
+namespace ModuleBase
 {
 class DdlaContext;
+}
 
+namespace module_rt
+{
 template <typename Device = base_device::DEVICE_CPU>
 class Evolve_elec
 {
@@ -167,7 +170,7 @@ class Evolve_elec
                           const int propagator,
                           const bool use_tensor,
                           const bool use_lapack,
-                          const module_rt::DdlaContext* ddla,
+                          const ModuleBase::DdlaContext* ddla,
                           module_rt::TD_MovingGauge* td_mg,
                           const UnitCell* ucell,
                           const std::vector<ModuleBase::Vector3<double>>& kvec_d,
