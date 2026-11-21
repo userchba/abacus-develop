@@ -2,10 +2,10 @@
 #include "source_base/module_container/ATen/kernels/lapack.h"
 #include "source_base/module_container/ATen/kernels/memory.h" // memory operations (Tensor)
 #include "source_base/module_device/memory_op.h"              // memory operations
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_io/module_parameter/parameter.h"
 #include "propagator.h"
-#include "td_linalg.h"
 
 #include <complex>
 #include <iostream>
@@ -27,20 +27,20 @@ void Propagator::compute_propagator_etrs(const int nlocal,
     int tag = 2;
     compute_propagator_taylor(nlocal, Stmp, Htmp, U1.data(), ofs_running, print_matrix, tag, ddla);
     compute_propagator_taylor(nlocal, Stmp, H_laststep, U2.data(), ofs_running, print_matrix, tag, ddla);
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nlocal,
-            nlocal,
-            1.0,
-            U1.data(),
-            this->ParaV->para_2d().desc(),
-            U2.data(),
-            this->ParaV->para_2d().desc(),
-            0.0,
-            U_operator,
-            this->ParaV->para_2d().desc());
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nlocal,
+                                  nlocal,
+                                  1.0,
+                                  U1.data(),
+                                  this->ParaV->para_2d().desc(),
+                                  U2.data(),
+                                  this->ParaV->para_2d().desc(),
+                                  0.0,
+                                  U_operator,
+                                  this->ParaV->para_2d().desc());
 }
 #endif // __MPI
 } // namespace module_rt

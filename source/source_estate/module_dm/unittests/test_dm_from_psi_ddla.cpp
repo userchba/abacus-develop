@@ -185,7 +185,7 @@ void check_case(const DmCase& dc,
     ModuleBase::DdlaContext ddla;
     ddla.bind(pv.para_2d(), gpu);
     fill_dm(dm, dc.nk, size);
-    module_dm::dm_from_psi(&pv, wg, wfc, dm, ddla);
+    module_dm::dm_from_psi(&pv, wg, wfc, dm, &ddla);
 
     EXPECT_LT(relative_difference(dm, ref, dc.nk, size), 1e-13);
     EXPECT_EQ(all_values(wfc), wfc_before);

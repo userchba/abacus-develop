@@ -1,9 +1,9 @@
 #include "propagator.h"
 
 #include "source_base/block_cyclic_distribution.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/timer.h"
 #include "source_base/tool_quit.h"
-#include "td_linalg.h"
 
 #include <algorithm>
 #include <cmath>
@@ -66,14 +66,14 @@ void Propagator::compute_propagator_cn2_ddla(const int nlocal,
     const std::complex<double> plus_coef(0.0, 0.25 * this->dt);
 
     // Numerator S - i*dt/4*H is formed in U_operator, denominator S + i*dt/4*H.
-    td_geadd(&ddla, no_trans, nlocal, nlocal, minus_coef, Htmp, desc, one, U_operator, desc);
-    td_geadd(&ddla, no_trans, nlocal, nlocal, plus_coef, Htmp, desc, one, denominator.data(), desc);
+    ModuleBase::ddla_linalg::geadd(&ddla, no_trans, nlocal, nlocal, minus_coef, Htmp, desc, one, U_operator, desc);
+    ModuleBase::ddla_linalg::geadd(&ddla, no_trans, nlocal, nlocal, plus_coef, Htmp, desc, one, denominator.data(), desc);
 
     // U = Denominator^{-1} * Numerator: one LU solve replaces the explicit
     // inverse and the extra matrix product of the ScaLAPACK path.
     std::vector<int> ipiv;
-    td_ddla_getrf(ddla, dist, denominator.data(), ipiv);
-    td_ddla_getrs(ddla, dist, left, nlocal, denominator.data(), ipiv, U_operator, desc);
+    ModuleBase::ddla_linalg::getrf(ddla, dist, denominator.data(), ipiv);
+    ModuleBase::ddla_linalg::getrs(ddla, dist, left, nlocal, denominator.data(), ipiv, U_operator, desc);
 
     if (print_matrix)
     {

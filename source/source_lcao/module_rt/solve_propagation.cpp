@@ -3,8 +3,8 @@
 #include "source_base/constants.h"
 #include "source_base/global_function.h"
 #include "source_base/module_external/blas_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
-#include "source_lcao/module_rt/td_linalg.h"
 
 #include <iostream>
 #include <vector>
@@ -41,43 +41,43 @@ void solve_propagation(const Parallel_Orbitals* pv,
     std::complex<double> beta1 = {0.0, -0.25 * dt_au};
     std::complex<double> beta2 = {0.0, 0.25 * dt_au};
 
-    td_geadd(ddla,
-             'N',
-             nlocal,
-             nlocal,
-             alpha,
-             Stmp,
-             pv->para_2d().desc(),
-             beta2,
-             operator_A,
-             pv->para_2d().desc());
-    td_geadd(ddla,
-             'N',
-             nlocal,
-             nlocal,
-             alpha,
-             Stmp,
-             pv->para_2d().desc(),
-             beta1,
-             operator_B,
-             pv->para_2d().desc());
+    ModuleBase::ddla_linalg::geadd(ddla,
+                                   'N',
+                                   nlocal,
+                                   nlocal,
+                                   alpha,
+                                   Stmp,
+                                   pv->para_2d().desc(),
+                                   beta2,
+                                   operator_A,
+                                   pv->para_2d().desc());
+    ModuleBase::ddla_linalg::geadd(ddla,
+                                   'N',
+                                   nlocal,
+                                   nlocal,
+                                   alpha,
+                                   Stmp,
+                                   pv->para_2d().desc(),
+                                   beta1,
+                                   operator_B,
+                                   pv->para_2d().desc());
     // ->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     // (3) b = operator_B @ psi_k_laststep
     std::complex<double>* tmp_b = new std::complex<double>[pv->nloc_wfc];
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nlocal,
-            1.0,
-            operator_B,
-            pv->para_2d().desc(),
-            psi_k_laststep,
-            pv->desc_wfc,
-            0.0,
-            tmp_b,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  operator_B,
+                                  pv->para_2d().desc(),
+                                  psi_k_laststep,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  tmp_b,
+                                  pv->desc_wfc);
     //get ipiv
     int* ipiv = new int[pv->para_2d().size()];
     int info = 0;
@@ -86,8 +86,8 @@ void solve_propagation(const Parallel_Orbitals* pv,
     {
         const char left = 'L';
         std::vector<int> ddla_ipiv;
-        td_ddla_getrf(*ddla, pv->para_2d(), operator_A, ddla_ipiv);
-        td_ddla_getrs(*ddla, pv->para_2d(), left, nband, operator_A, ddla_ipiv, tmp_b, pv->desc_wfc);
+        ModuleBase::ddla_linalg::getrf(*ddla, pv->para_2d(), operator_A, ddla_ipiv);
+        ModuleBase::ddla_linalg::getrs(*ddla, pv->para_2d(), left, nband, operator_A, ddla_ipiv, tmp_b, pv->desc_wfc);
     }
     else
     {
@@ -137,44 +137,44 @@ void solve_propagation(const Parallel_Orbitals* pv,
     std::complex<double> beta1 = {0.0, -0.25 * dt_au};
     std::complex<double> beta2 = {0.0, 0.25 * dt_au};
 
-    td_geadd(ddla,
-             'N',
-             nlocal,
-             nlocal,
-             alpha,
-             Stmp,
-             pv->para_2d().desc(),
-             beta2,
-             operator_A,
-             pv->para_2d().desc());
-    td_geadd(ddla,
-             'N',
-             nlocal,
-             nlocal,
-             alpha,
-             Stmp,
-             pv->para_2d().desc(),
-             beta1,
-             operator_B,
-             pv->para_2d().desc());
+    ModuleBase::ddla_linalg::geadd(ddla,
+                                   'N',
+                                   nlocal,
+                                   nlocal,
+                                   alpha,
+                                   Stmp,
+                                   pv->para_2d().desc(),
+                                   beta2,
+                                   operator_A,
+                                   pv->para_2d().desc());
+    ModuleBase::ddla_linalg::geadd(ddla,
+                                   'N',
+                                   nlocal,
+                                   nlocal,
+                                   alpha,
+                                   Stmp,
+                                   pv->para_2d().desc(),
+                                   beta1,
+                                   operator_B,
+                                   pv->para_2d().desc());
 
     // ->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     // (3) b = operator_B @ psi_k_laststep
     std::complex<double>* tmp_b = new std::complex<double>[pv->nloc_wfc];
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nlocal,
-            1.0,
-            operator_B,
-            pv->para_2d().desc(),
-            psi_k_laststep,
-            pv->desc_wfc,
-            0.0,
-            tmp_b,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  operator_B,
+                                  pv->para_2d().desc(),
+                                  psi_k_laststep,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  tmp_b,
+                                  pv->desc_wfc);
 
     // get ipiv
     int* ipiv = new int[pv->para_2d().size()];
@@ -185,8 +185,8 @@ void solve_propagation(const Parallel_Orbitals* pv,
     {
         const char left = 'L';
         std::vector<int> ddla_ipiv;
-        td_ddla_getrf(*ddla, pv->para_2d(), operator_A, ddla_ipiv);
-        td_ddla_getrs(*ddla, pv->para_2d(), left, nband, operator_A, ddla_ipiv, tmp_b, pv->desc_wfc);
+        ModuleBase::ddla_linalg::getrf(*ddla, pv->para_2d(), operator_A, ddla_ipiv);
+        ModuleBase::ddla_linalg::getrs(*ddla, pv->para_2d(), left, nband, operator_A, ddla_ipiv, tmp_b, pv->desc_wfc);
     }
     else
     {

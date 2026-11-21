@@ -121,16 +121,23 @@ if(ENABLE_DDLA)
     TARGET MODULE_BASE_ddla_context
     LIBS parameter base device ddla::ddla
     SOURCES test_ddla_context.cpp)
-  foreach(rank_count IN ITEMS 2 4 6)
-    add_test(
-      NAME MODULE_BASE_ddla_context_np${rank_count}
-      COMMAND
-        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
-        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_BASE_ddla_context> ${MPIEXEC_POSTFLAGS}
-      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    set_tests_properties(
-      MODULE_BASE_ddla_context_np${rank_count}
-      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
-                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  addtest(
+    TARGET MODULE_BASE_ddla_linalg
+    LIBS parameter base device ddla::ddla
+    SOURCES test_ddla_linalg.cpp
+            ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp)
+  foreach(ddla_test IN ITEMS MODULE_BASE_ddla_context MODULE_BASE_ddla_linalg)
+    foreach(rank_count IN ITEMS 2 4 6)
+      add_test(
+        NAME ${ddla_test}_np${rank_count}
+        COMMAND
+          ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+          ${MPIEXEC_PREFLAGS} $<TARGET_FILE:${ddla_test}> ${MPIEXEC_POSTFLAGS}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+      set_tests_properties(
+        ${ddla_test}_np${rank_count}
+        PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                   PROCESSORS "${rank_count}" TIMEOUT 120)
+    endforeach()
   endforeach()
 endif()

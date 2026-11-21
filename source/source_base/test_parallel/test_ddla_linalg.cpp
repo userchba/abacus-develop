@@ -1,7 +1,7 @@
 #ifdef __DDLA
 
-#include "../td_linalg.h"
 #include "source_base/module_external/ddla_context.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
 #include "source_base/parallel_reduce.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
@@ -18,18 +18,18 @@
 #include <vector>
 
 /************************************************
- *  unit test of module_rt::td_gemm / td_geadd
+ *  unit test of ModuleBase::ddla_linalg
  ***********************************************/
 
 /**
  * - Tested functions
- *   - td_gemm, td_geadd with a LibDDLA context
+ *   - gemm, geadd with a LibDDLA context
  *     - match the ScaLAPACK path (null context) for the products used by
  *       one Crank-Nicolson step: H*psi, psi^H*(S psi) into the band x band
  *       Eij layout, psi*Cij, and the H/S half-step average, on uneven
  *       blocks, nband < nlocal and swapped grids, on the CPU and (when
  *       available) the GPU backend.
- *   - td_ddla_getrf + td_ddla_getrs
+ *   - getrf + getrs
  *     - side 'L' matches ScaLAPACK pzgesv for S X = B with B in the psi
  *       (nlocal x nband) layout;
  *     - side 'R' solves X S = H: the residual X S - H vanishes.
@@ -93,6 +93,28 @@ double max_abs_diff_all_ranks(const std::vector<Complex>& a, const std::vector<C
     return diff;
 }
 
+
+// Real matrices from the real parts of the complex test entries.
+std::vector<double> real_part(const std::vector<Complex>& z)
+{
+    std::vector<double> x(z.size(), 0.0);
+    for (std::size_t i = 0; i < z.size(); ++i)
+    {
+        x[i] = z[i].real();
+    }
+    return x;
+}
+
+double max_abs_diff_all_ranks(const std::vector<double>& a, const std::vector<double>& b)
+{
+    double diff = 0.0;
+    for (std::size_t i = 0; i < a.size(); ++i)
+    {
+        diff = std::max(diff, std::abs(a[i] - b[i]));
+    }
+    Parallel_Reduce::reduce_max(diff);
+    return diff;
+}
 } // namespace
 
 // Run the backends LibDDLA was built with (false: CPU, true: GPU); the CPU
@@ -104,7 +126,7 @@ const auto ddla_backends = testing::Values(false);
 #endif
 
 // Parameters: (nlocal, nband, block size, swap grid), GPU backend.
-class TdLinalgTest : public testing::TestWithParam<std::tuple<std::tuple<int, int, int, bool>, bool>>
+class DdlaLinalgTest : public testing::TestWithParam<std::tuple<std::tuple<int, int, int, bool>, bool>>
 {
   protected:
     void SetUp() override
@@ -128,7 +150,7 @@ class TdLinalgTest : public testing::TestWithParam<std::tuple<std::tuple<int, in
     ModuleBase::DdlaContext ddla;
 };
 
-TEST_P(TdLinalgTest, GemmMatchesScalapack)
+TEST_P(DdlaLinalgTest, GemmMatchesScalapack)
 {
     const BlockCyclicDistribution& dist = pv.para_2d();
     const std::vector<Complex> h = fill_local(dist, nlocal, nlocal, 1);
@@ -140,32 +162,32 @@ TEST_P(TdLinalgTest, GemmMatchesScalapack)
     // tmp = H * psi
     std::vector<Complex> tmp_ref(h.size(), zero);
     std::vector<Complex> tmp_ddla(h.size(), zero);
-    module_rt::td_gemm(scalapack, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
-                       pv.desc_wfc, zero, tmp_ref.data(), pv.desc_wfc);
-    module_rt::td_gemm(&ddla, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
-                       pv.desc_wfc, zero, tmp_ddla.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
+                                  pv.desc_wfc, zero, tmp_ref.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::gemm(&ddla, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
+                                  pv.desc_wfc, zero, tmp_ddla.data(), pv.desc_wfc);
     EXPECT_LT(max_abs_diff_all_ranks(tmp_ref, tmp_ddla), tol) << "H*psi";
 
     // eij = psi^H * tmp in the nband x nband Eij layout
     std::vector<Complex> eij_ref(h.size(), zero);
     std::vector<Complex> eij_ddla(h.size(), zero);
-    module_rt::td_gemm(scalapack, 'C', 'N', nband, nband, nlocal, one, psi.data(), pv.desc_wfc, tmp_ref.data(),
-                       pv.desc_wfc, zero, eij_ref.data(), pv.desc_Eij);
-    module_rt::td_gemm(&ddla, 'C', 'N', nband, nband, nlocal, one, psi.data(), pv.desc_wfc, tmp_ref.data(),
-                       pv.desc_wfc, zero, eij_ddla.data(), pv.desc_Eij);
+    ModuleBase::ddla_linalg::gemm(scalapack, 'C', 'N', nband, nband, nlocal, one, psi.data(), pv.desc_wfc, tmp_ref.data(),
+                                  pv.desc_wfc, zero, eij_ref.data(), pv.desc_Eij);
+    ModuleBase::ddla_linalg::gemm(&ddla, 'C', 'N', nband, nband, nlocal, one, psi.data(), pv.desc_wfc, tmp_ref.data(),
+                                  pv.desc_wfc, zero, eij_ddla.data(), pv.desc_Eij);
     EXPECT_LT(max_abs_diff_all_ranks(eij_ref, eij_ddla), tol) << "psi^H*tmp";
 
     // psi_new = tmp * eij
     std::vector<Complex> out_ref(h.size(), zero);
     std::vector<Complex> out_ddla(h.size(), zero);
-    module_rt::td_gemm(scalapack, 'N', 'N', nlocal, nband, nband, one, tmp_ref.data(), pv.desc_wfc,
-                       eij_ref.data(), pv.desc_Eij, zero, out_ref.data(), pv.desc_wfc);
-    module_rt::td_gemm(&ddla, 'N', 'N', nlocal, nband, nband, one, tmp_ref.data(), pv.desc_wfc, eij_ref.data(),
-                       pv.desc_Eij, zero, out_ddla.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nband, nband, one, tmp_ref.data(), pv.desc_wfc,
+                                  eij_ref.data(), pv.desc_Eij, zero, out_ref.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::gemm(&ddla, 'N', 'N', nlocal, nband, nband, one, tmp_ref.data(), pv.desc_wfc, eij_ref.data(),
+                                  pv.desc_Eij, zero, out_ddla.data(), pv.desc_wfc);
     EXPECT_LT(max_abs_diff_all_ranks(out_ref, out_ddla), tol * nband) << "tmp*eij";
 }
 
-TEST_P(TdLinalgTest, GeaddMatchesScalapack)
+TEST_P(DdlaLinalgTest, GeaddMatchesScalapack)
 {
     const BlockCyclicDistribution& dist = pv.para_2d();
     const std::vector<Complex> h_last = fill_local(dist, nlocal, nlocal, 3);
@@ -175,10 +197,10 @@ TEST_P(TdLinalgTest, GeaddMatchesScalapack)
     const Complex coef(0.25, -0.75);
     const ModuleBase::DdlaContext* scalapack = nullptr;
 
-    module_rt::td_geadd(scalapack, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ref.data(),
-                        dist.desc());
-    module_rt::td_geadd(&ddla, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ddla.data(),
-                        dist.desc());
+    ModuleBase::ddla_linalg::geadd(scalapack, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ref.data(),
+                                   dist.desc());
+    ModuleBase::ddla_linalg::geadd(&ddla, 'N', nlocal, nlocal, half, h_last.data(), dist.desc(), coef, h_ddla.data(),
+                                   dist.desc());
     EXPECT_LT(max_abs_diff_all_ranks(h_ref, h_ddla), 1.0e-15) << "geadd";
 }
 
@@ -210,7 +232,7 @@ std::vector<Complex> overlap_local(const BlockCyclicDistribution& dist, const in
 
 } // namespace
 
-TEST_P(TdLinalgTest, GetrsMatchesScalapack)
+TEST_P(DdlaLinalgTest, GetrsMatchesScalapack)
 {
     const BlockCyclicDistribution& dist = pv.para_2d();
     const std::vector<Complex> s = overlap_local(dist, nlocal, 5);
@@ -232,23 +254,54 @@ TEST_P(TdLinalgTest, GetrsMatchesScalapack)
     std::vector<Complex> s_lu = s;
     std::vector<Complex> x_ddla = b;
     std::vector<int> ipiv;
-    module_rt::td_ddla_getrf(ddla, dist, s_lu.data(), ipiv);
-    module_rt::td_ddla_getrs(ddla, dist, left, nband, s_lu.data(), ipiv, x_ddla.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::getrf(ddla, dist, s_lu.data(), ipiv);
+    ModuleBase::ddla_linalg::getrs(ddla, dist, left, nband, s_lu.data(), ipiv, x_ddla.data(), pv.desc_wfc);
     EXPECT_LT(max_abs_diff_all_ranks(x_ref, x_ddla), tol) << "S X = B";
 
     // Right solve X S = H with the same factors; check the residual X S - H.
     std::vector<Complex> x_right = h;
-    module_rt::td_ddla_getrs(ddla, dist, right, nlocal, s_lu.data(), ipiv, x_right.data(), dist.desc());
+    ModuleBase::ddla_linalg::getrs(ddla, dist, right, nlocal, s_lu.data(), ipiv, x_right.data(), dist.desc());
     std::vector<Complex> residual = h;
     const ModuleBase::DdlaContext* scalapack = nullptr;
-    module_rt::td_gemm(scalapack, 'N', 'N', nlocal, nlocal, nlocal, one, x_right.data(), dist.desc(), s.data(),
-                       dist.desc(), minus_one, residual.data(), dist.desc());
+    ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nlocal, nlocal, one, x_right.data(), dist.desc(), s.data(),
+                                  dist.desc(), minus_one, residual.data(), dist.desc());
     const std::vector<Complex> zeros(residual.size(), Complex(0.0, 0.0));
     EXPECT_LT(max_abs_diff_all_ranks(residual, zeros), tol) << "X S = H";
 }
 
+TEST_P(DdlaLinalgTest, RealGemmAndGeaddMatchScalapack)
+{
+    const BlockCyclicDistribution& dist = pv.para_2d();
+    const ModuleBase::DdlaContext* scalapack = nullptr;
+    const std::vector<double> h = real_part(fill_local(dist, nlocal, nlocal, 1));
+    const std::vector<double> psi = real_part(fill_local(dist, nlocal, nband, 2));
+    const double one = 1.0;
+    const double zero = 0.0;
+
+    // beta = 0: the old content of C (7 here) must not leak into the result,
+    // and the padding rows and columns outside the matrix keep it.
+    std::vector<double> hpsi_ref(psi.size(), 7.0);
+    std::vector<double> hpsi_ddla(psi.size(), 7.0);
+    ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
+                                  pv.desc_wfc, zero, hpsi_ref.data(), pv.desc_wfc);
+    ModuleBase::ddla_linalg::gemm(&ddla, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(), psi.data(),
+                                  pv.desc_wfc, zero, hpsi_ddla.data(), pv.desc_wfc);
+    EXPECT_LT(max_abs_diff_all_ranks(hpsi_ddla, hpsi_ref), tol);
+
+    // C = 0.5 C + 2 H^T
+    std::vector<double> c_ref = real_part(fill_local(dist, nlocal, nlocal, 3));
+    std::vector<double> c_ddla = c_ref;
+    const double two = 2.0;
+    const double half = 0.5;
+    ModuleBase::ddla_linalg::geadd(scalapack, 'T', nlocal, nlocal, two, h.data(), dist.desc(), half, c_ref.data(),
+                                   dist.desc());
+    ModuleBase::ddla_linalg::geadd(&ddla, 'T', nlocal, nlocal, two, h.data(), dist.desc(), half, c_ddla.data(),
+                                   dist.desc());
+    EXPECT_LT(max_abs_diff_all_ranks(c_ddla, c_ref), tol);
+}
+
 INSTANTIATE_TEST_SUITE_P(Layouts,
-                         TdLinalgTest,
+                         DdlaLinalgTest,
                          testing::Combine(testing::Values(std::make_tuple(4, 2, 1, false),
                                                           std::make_tuple(37, 13, 4, false),
                                                           std::make_tuple(64, 24, 8, false),

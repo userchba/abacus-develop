@@ -11,7 +11,6 @@ if(ENABLE_LCAO)
     propagator.cpp
     propagator_cn2.cpp
     propagator_ddla.cpp
-    td_linalg.cpp
     propagator_taylor.cpp
     propagator_etrs.cpp
     upsi.cpp

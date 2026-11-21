@@ -1,7 +1,7 @@
 #include "upsi.h"
 
 #include "source_base/module_container/ATen/kernels/blas.h"
-#include "source_lcao/module_rt/td_linalg.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/timer.h"
 
 #include <cassert>
@@ -21,20 +21,20 @@ void upsi(const Parallel_Orbitals* pv,
           std::ofstream& ofs_running,
           const int print_matrix)
 {
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nlocal,
-            1.0,
-            U_operator,
-            pv->para_2d().desc(),
-            psi_k_laststep,
-            pv->desc_wfc,
-            0.0,
-            psi_k,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  U_operator,
+                                  pv->para_2d().desc(),
+                                  psi_k_laststep,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  psi_k,
+                                  pv->desc_wfc);
 
     if (print_matrix)
     {

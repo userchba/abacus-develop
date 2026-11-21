@@ -5,11 +5,6 @@ if(USE_CUDA)
        ../kernels/cuda/snap_psibeta_gpu.cu)
 endif()
 
-# Backend-selecting TDDFT linear algebra (module_rt::td_gemm/td_geadd);
-# LibDDLA is linked only when it is enabled.
-set(TDDFT_LINALG_SOURCES ../td_linalg.cpp)
-set(TDDFT_LINALG_LIBS $<$<BOOL:${ENABLE_DDLA}>:ddla::ddla>)
-
 add_library(tddft_test_lib tddft_test.cpp)
 target_link_libraries(tddft_test_lib PRIVATE Threads::Threads GTest::gtest_main
                                              GTest::gmock_main)
@@ -20,7 +15,7 @@ target_link_libraries(tddft_test_lib PRIVATE Threads::Threads GTest::gtest_main
 if(NOT ENABLE_CUBLASMP)
   addtest(
     TARGET MODULE_LCAO_tddft_evolve_psi_test
-    LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
+    LIBS parameter base device tddft_test_lib
     SOURCES test_evolve_psi.cpp
             ../evolve_psi.cpp
             ../evolve_psi_ddla.cpp
@@ -34,39 +29,38 @@ if(NOT ENABLE_CUBLASMP)
             ../propagator_taylor.cpp
             ../propagator_etrs.cpp
             ../propagator_ddla.cpp
-            ${TDDFT_LINALG_SOURCES}
             ../../../source_basis/module_ao/parallel_orbitals.cpp
             ../../../source_io/module_energy/td_eij_io.cpp)
 endif()
 
 addtest(
   TARGET MODULE_LCAO_tddft_middle_hamilt_test
-  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
-  SOURCES middle_hamilt_test.cpp ../middle_hamilt.cpp ${TDDFT_LINALG_SOURCES}
+  LIBS parameter base device tddft_test_lib
+  SOURCES middle_hamilt_test.cpp ../middle_hamilt.cpp
           ../../../source_basis/module_ao/parallel_orbitals.cpp)
 
 addtest(
   TARGET MODULE_LCAO_tddft_band_energy_test
-  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
-  SOURCES band_energy_test.cpp ../band_energy.cpp ${TDDFT_LINALG_SOURCES}
+  LIBS parameter base device tddft_test_lib
+  SOURCES band_energy_test.cpp ../band_energy.cpp
           ../../../source_basis/module_ao/parallel_orbitals.cpp
           ../../../source_io/module_energy/td_eij_io.cpp)
 
 addtest(
   TARGET MODULE_LCAO_tddft_norm_psi_test
-  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
-  SOURCES norm_psi_test.cpp ../norm_psi.cpp ${TDDFT_LINALG_SOURCES}
+  LIBS parameter base device tddft_test_lib
+  SOURCES norm_psi_test.cpp ../norm_psi.cpp
           ../../../source_basis/module_ao/parallel_orbitals.cpp)
 
 addtest(
   TARGET MODULE_LCAO_tddft_upsi_test
-  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
-  SOURCES upsi_test1.cpp upsi_test2.cpp upsi_test3.cpp ../upsi.cpp ${TDDFT_LINALG_SOURCES}
+  LIBS parameter base device tddft_test_lib
+  SOURCES upsi_test1.cpp upsi_test2.cpp upsi_test3.cpp ../upsi.cpp
           ../../../source_basis/module_ao/parallel_orbitals.cpp)
 
 addtest(
   TARGET MODULE_LCAO_tddft_propagator_test
-  LIBS parameter base device tddft_test_lib ${TDDFT_LINALG_LIBS}
+  LIBS parameter base device tddft_test_lib
   SOURCES propagator_test1.cpp
           propagator_test2.cpp
           propagator_test3.cpp
@@ -74,7 +68,6 @@ addtest(
           ../propagator_cn2.cpp
           ../propagator_taylor.cpp
           ../propagator_etrs.cpp
-          ${TDDFT_LINALG_SOURCES}
           ../../../source_basis/module_ao/parallel_orbitals.cpp)
 
 addtest(
@@ -134,12 +127,6 @@ if(ENABLE_DDLA)
             ../propagator_taylor.cpp
             ../propagator_etrs.cpp
             ../propagator_ddla.cpp
-            ../td_linalg.cpp
-            ../../../source_basis/module_ao/parallel_orbitals.cpp)
-  addtest(
-    TARGET MODULE_LCAO_tddft_td_linalg_test
-    LIBS parameter base device ddla::ddla
-    SOURCES test_td_linalg.cpp ../td_linalg.cpp
             ../../../source_basis/module_ao/parallel_orbitals.cpp)
   addtest(
     TARGET MODULE_LCAO_tddft_evolve_psi_ddla_test
@@ -157,11 +144,9 @@ if(ENABLE_DDLA)
             ../propagator_taylor.cpp
             ../propagator_etrs.cpp
             ../propagator_ddla.cpp
-            ../td_linalg.cpp
             ../../../source_basis/module_ao/parallel_orbitals.cpp
             ../../../source_io/module_energy/td_eij_io.cpp)
   foreach(ddla_test IN ITEMS MODULE_LCAO_tddft_propagator_ddla_test
-                             MODULE_LCAO_tddft_td_linalg_test
                              MODULE_LCAO_tddft_evolve_psi_ddla_test)
     foreach(rank_count IN ITEMS 2 4 6)
       add_test(

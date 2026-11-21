@@ -170,6 +170,14 @@ extern "C"
                         const std::complex<double> *beta,
         const std::complex<double> *c, const int *ic, const int *jc, const int *descc);
 
+    void pdgeadd_(
+        const char *transa,
+        const int *m, const int *n,
+        const double *alpha,
+        const double *a, const int *ia, const int *ja, const int *desca,
+        const double *beta,
+        const double *c, const int *ic, const int *jc, const int *descc);
+
     void pdgemr2d_(const int *M, const int *N,
         double *A, const int *IA, const int *JA, const int *DESCA, 
         double *B, const int *IB, const int *JB, const int *DESCB,
@@ -250,6 +258,18 @@ public:
         const std::complex<double> *c, const int ic, const int jc, const int *descc)
     {
         pzgeadd_(&transa, &m, &n, &alpha, a, &ia, &ja, desca, &beta, c, &ic, &jc, descc);
+    }
+
+    static inline
+    void geadd(
+        const char transa,
+        const int m, const int n,
+        const double alpha,
+        const double *a, const int ia, const int ja, const int *desca,
+        const double beta,
+        const double *c, const int ic, const int jc, const int *descc)
+    {
+        pdgeadd_(&transa, &m, &n, &alpha, a, &ia, &ja, desca, &beta, c, &ic, &jc, descc);
     }
 
     static inline

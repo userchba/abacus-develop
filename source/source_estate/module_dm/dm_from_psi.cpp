@@ -2,23 +2,14 @@
 
 #include <cassert>
 #include <complex>
+#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "source_base/module_external/blas_connector.h"
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/timer.h"
 #include "source_psi/psi.h"
-
-#ifdef __DDLA
-#include "source_base/module_external/ddla_context.h"
-#include "source_base/module_external/ddla_device.h"
-#include "source_base/tool_quit.h"
-
-#include <ddla/ddla.h>
-
-#include <exception>
-#include <string>
-#endif
 
 namespace module_dm
 {
@@ -117,77 +108,40 @@ void fill_weighted_wfc(const Parallel_Orbitals* ParaV,
  * for 'T': 'T' and 'C' give identical operand dimensions, but 'C' additionally
  * conjugates the transposed operand, moving the conjugation to the second
  * index and producing the transpose of the stored conj-first DM block.
+ *
+ * @param ddla LibDDLA handle bound to the grid of the matrices, or nullptr for ScaLAPACK
  */
-void gemm_dm(const psi::Psi<double>& psi1,
-             const psi::Psi<double>& psi2,
-             double* dm_out,
+template <typename TK>
+void gemm_dm(const psi::Psi<TK>& psi1,
+             const psi::Psi<TK>& psi2,
+             TK* dm_out,
              const int* desc_psi,
-             const int* desc_dm)
+             const int* desc_dm,
+             const ModuleBase::DdlaContext* ddla)
 {
-    ModuleBase::timer::start("dmk_from_psi", "pdgemm");
-    const double one_float = 1.0;
-    const double zero_float = 0.0;
-    const int one_int = 1;
+    const std::string timer_name = std::is_same<TK, double>::value ? "pdgemm" : "pzgemm";
+    ModuleBase::timer::start("dmk_from_psi", timer_name);
+    const TK one = 1.0;
+    const TK zero = 0.0;
     const char n_char = 'N';
     const char t_char = 'T';
     const int nlocal = desc_dm[2];
     const int nbands = desc_psi[3];
-    ScalapackConnector::gemm(n_char,
-                             t_char,
-                             nlocal,
-                             nlocal,
-                             nbands,
-                             one_float,
-                             psi1.get_pointer(),
-                             one_int,
-                             one_int,
-                             desc_psi,
-                             psi2.get_pointer(),
-                             one_int,
-                             one_int,
-                             desc_psi,
-                             zero_float,
-                             dm_out,
-                             one_int,
-                             one_int,
-                             desc_dm);
-    ModuleBase::timer::end("dmk_from_psi", "pdgemm");
-}
-
-void gemm_dm(const psi::Psi<std::complex<double>>& psi1,
-             const psi::Psi<std::complex<double>>& psi2,
-             std::complex<double>* dm_out,
-             const int* desc_psi,
-             const int* desc_dm)
-{
-    ModuleBase::timer::start("dmk_from_psi", "pzgemm");
-    const std::complex<double> one_complex = {1.0, 0.0};
-    const std::complex<double> zero_complex = {0.0, 0.0};
-    const int one_int = 1;
-    const char n_char = 'N';
-    const char t_char = 'T';
-    const int nlocal = desc_dm[2];
-    const int nbands = desc_psi[3];
-    ScalapackConnector::gemm(n_char,
-                             t_char,
-                             nlocal,
-                             nlocal,
-                             nbands,
-                             one_complex,
-                             psi1.get_pointer(),
-                             one_int,
-                             one_int,
-                             desc_psi,
-                             psi2.get_pointer(),
-                             one_int,
-                             one_int,
-                             desc_psi,
-                             zero_complex,
-                             dm_out,
-                             one_int,
-                             one_int,
-                             desc_dm);
-    ModuleBase::timer::end("dmk_from_psi", "pzgemm");
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  n_char,
+                                  t_char,
+                                  nlocal,
+                                  nlocal,
+                                  nbands,
+                                  one,
+                                  psi1.get_pointer(),
+                                  desc_psi,
+                                  psi2.get_pointer(),
+                                  desc_psi,
+                                  zero,
+                                  dm_out,
+                                  desc_dm);
+    ModuleBase::timer::end("dmk_from_psi", timer_name);
 }
 #else
 /**
@@ -248,6 +202,7 @@ void gemm_dm(const psi::Psi<std::complex<double>>& psi1,
  * @brief Fill the weighted wavefunction buffer and run the DM GEMM for one k-point
  *
  * @param wg_wfc reusable scratch buffer, shape (1, nbands_local, nbasis_local)
+ * @param ddla LibDDLA handle for the GEMM, or nullptr for ScaLAPACK (unused in serial builds)
  */
 template <typename TK>
 void dmk_from_psi_impl(const Parallel_Orbitals* ParaV,
@@ -255,88 +210,48 @@ void dmk_from_psi_impl(const Parallel_Orbitals* ParaV,
                       const int ik,
                       const psi::Psi<TK>& wfc,
                       TK* dmk_out,
-                      psi::Psi<TK>& wg_wfc)
+                      psi::Psi<TK>& wg_wfc,
+                      const ModuleBase::DdlaContext* ddla)
 {
     wfc.fix_k(ik);
     fill_weighted_wfc(ParaV, wg, ik, wfc, wg_wfc);
 #ifdef __MPI
-    gemm_dm(wg_wfc, wfc, dmk_out, ParaV->desc_wfc, ParaV->para_2d().desc());
+    gemm_dm(wg_wfc, wfc, dmk_out, ParaV->desc_wfc, ParaV->para_2d().desc(), ddla);
 #else
+    (void)ddla;
     gemm_dm(wg_wfc, wfc, dmk_out);
 #endif
 }
 
-#ifdef __DDLA
 /**
- * @brief dm_from_psi() body with the GEMM in LibDDLA, see gemm_dm() for 'N' and 'T'
+ * @brief Every k-point block of DM, see dm_from_psi()
  *
- * The weighted wavefunctions are built on the host as for ScaLAPACK. A GPU
- * handle gets both GEMM operands and the density-matrix block in device
- * memory, allocated once for all k-points; the block is copied back after
- * every k-point.
+ * @param ddla LibDDLA handle for the GEMMs, or nullptr for ScaLAPACK
  */
 template <typename TK, typename TR>
-void dm_from_psi_ddla(const Parallel_Orbitals* ParaV,
+void dm_from_psi_impl(const Parallel_Orbitals* ParaV,
                       const ModuleBase::matrix& wg,
                       const psi::Psi<TK>& wfc,
                       DensityMatrix<TK, TR>& DM,
-                      const ModuleBase::DdlaContext& ddla)
+                      const ModuleBase::DdlaContext* ddla)
 {
-    namespace ddla_device = ModuleBase::ddla_device;
-    const ddla::DdlaHandle_t& handle = ddla.handle();
-    const bool on_gpu = ddla.on_gpu();
-    const int* desc_psi = ParaV->desc_wfc;
-    const int* desc_dm = ParaV->para_2d().desc();
-    const int nlocal = desc_dm[2];
-    const int nbands = desc_psi[3];
-    const TK one = 1.0;
-    const TK zero = 0.0;
-    const char n_char = 'N';
-    const char t_char = 'T';
+    assert(ParaV != nullptr);
+    ModuleBase::TITLE("elecstate", "dm_from_psi");
+    ModuleBase::timer::start("elecstate", "dm_from_psi");
+
+    const int nbands_local = wfc.get_nbands();
+    const int nbasis_local = wfc.get_nbasis();
 
     // Allocate the weighted-wavefunction scratch once and reuse it for every k-point.
-    psi::Psi<TK> wg_wfc(1, wfc.get_nbands(), wfc.get_nbasis(), wfc.get_nbasis(), true);
-    ddla_device::DeviceMatrixOf<TK> wg_wfc_device(handle);
-    ddla_device::DeviceMatrixOf<TK> wfc_device(handle);
-    ddla_device::DeviceMatrixOf<TK> dmk_device(handle);
-    try
+    psi::Psi<TK> wg_wfc(1, nbands_local, nbasis_local, nbasis_local, true);
+
+    for (int ik = 0; ik < wfc.get_nk(); ++ik)
     {
-        if (on_gpu)
-        {
-            wg_wfc_device = ddla_device::allocate<TK>(handle, desc_psi);
-            wfc_device = ddla_device::allocate<TK>(handle, desc_psi);
-            dmk_device = ddla_device::allocate<TK>(handle, desc_dm);
-        }
-        for (int ik = 0; ik < wfc.get_nk(); ++ik)
-        {
-            wfc.fix_k(ik);
-            fill_weighted_wfc(ParaV, wg, ik, wfc, wg_wfc);
-            TK* dmk = DM.get_dmk_ptr(ik);
-            const TK* a = wg_wfc.get_pointer();
-            const TK* b = wfc.get_pointer();
-            TK* c = dmk;
-            if (on_gpu)
-            {
-                ddla_device::copy_to_device(handle, wg_wfc_device, a, desc_psi);
-                ddla_device::copy_to_device(handle, wfc_device, b, desc_psi);
-                a = wg_wfc_device.data();
-                b = wfc_device.data();
-                c = dmk_device.data();
-            }
-            ddla::pgemm(handle, n_char, t_char, nlocal, nlocal, nbands, one, a, desc_psi, b, desc_psi, zero, c, desc_dm);
-            if (on_gpu)
-            {
-                ddla_device::to_host(handle, dmk, dmk_device, desc_dm);
-            }
-        }
+        TK* dmk_pointer = DM.get_dmk_ptr(ik);
+        dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_pointer, wg_wfc, ddla);
     }
-    catch (const std::exception& e)
-    {
-        const std::string message = std::string("LibDDLA pgemm failed: ") + e.what();
-        ModuleBase::WARNING_QUIT("module_dm::dm_from_psi", message);
-    }
+    ModuleBase::timer::end("elecstate", "dm_from_psi");
 }
-#endif // __DDLA
 } // namespace
 
 // for Gamma-Only case where DMK is double
@@ -345,22 +260,7 @@ void dm_from_psi(const Parallel_Orbitals* ParaV,
                 const psi::Psi<double>& wfc,
                 module_dm::DensityMatrix<double, double>& DM)
 {
-    assert(ParaV != nullptr);
-    ModuleBase::TITLE("elecstate", "dm_from_psi");
-    ModuleBase::timer::start("elecstate", "dm_from_psi");
-
-    const int nbands_local = wfc.get_nbands();
-    const int nbasis_local = wfc.get_nbasis();
-
-    // Allocate the weighted-wavefunction scratch once and reuse it for every k-point.
-    psi::Psi<double> wg_wfc(1, nbands_local, nbasis_local, nbasis_local, true);
-
-    for (int ik = 0; ik < wfc.get_nk(); ++ik)
-    {
-        double* dmk_pointer = DM.get_dmk_ptr(ik);
-        dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_pointer, wg_wfc);
-    }
-    ModuleBase::timer::end("elecstate", "dm_from_psi");
+    dm_from_psi_impl(ParaV, wg, wfc, DM, nullptr);
 }
 
 template <typename TR>
@@ -369,23 +269,7 @@ void dm_from_psi(const Parallel_Orbitals* ParaV,
                 const psi::Psi<std::complex<double>>& wfc,
                 module_dm::DensityMatrix<std::complex<double>, TR>& DM)
 {
-    assert(ParaV != nullptr);
-    ModuleBase::TITLE("elecstate", "dm_from_psi");
-    ModuleBase::timer::start("elecstate", "dm_from_psi");
-
-    const int nbands_local = wfc.get_nbands();
-    const int nbasis_local = wfc.get_nbasis();
-
-    // Allocate the weighted-wavefunction scratch once and reuse it for every k-point.
-    psi::Psi<std::complex<double>> wg_wfc(1, nbands_local, nbasis_local, nbasis_local, true);
-
-    for (int ik = 0; ik < wfc.get_nk(); ++ik)
-    {
-        std::complex<double>* dmk_pointer = DM.get_dmk_ptr(ik);
-        dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_pointer, wg_wfc);
-    }
-
-    ModuleBase::timer::end("elecstate", "dm_from_psi");
+    dm_from_psi_impl(ParaV, wg, wfc, DM, nullptr);
 }
 
 void dmk_from_psi(const Parallel_Orbitals* ParaV,
@@ -399,7 +283,7 @@ void dmk_from_psi(const Parallel_Orbitals* ParaV,
     assert(ik >= 0 && ik < wfc.get_nk());
 
     psi::Psi<double> wg_wfc(1, wfc.get_nbands(), wfc.get_nbasis(), wfc.get_nbasis(), true);
-    dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_out, wg_wfc);
+    dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_out, wg_wfc, nullptr);
 }
 
 void dmk_from_psi(const Parallel_Orbitals* ParaV,
@@ -417,7 +301,7 @@ void dmk_from_psi(const Parallel_Orbitals* ParaV,
                                           wfc.get_nbasis(),
                                           wfc.get_nbasis(),
                                           true);
-    dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_out, wg_wfc);
+    dmk_from_psi_impl(ParaV, wg, ik, wfc, dmk_out, wg_wfc, nullptr);
 }
 
 template void dm_from_psi(const Parallel_Orbitals* ParaV,
@@ -429,18 +313,13 @@ template void dm_from_psi(const Parallel_Orbitals* ParaV,
                          const psi::Psi<std::complex<double>>& wfc,
                          module_dm::DensityMatrix<std::complex<double>, double>& DM);
 
-#ifdef __DDLA
 void dm_from_psi(const Parallel_Orbitals* ParaV,
                 const ModuleBase::matrix& wg,
                 const psi::Psi<double>& wfc,
                 module_dm::DensityMatrix<double, double>& DM,
-                const ModuleBase::DdlaContext& ddla)
+                const ModuleBase::DdlaContext* ddla)
 {
-    assert(ParaV != nullptr);
-    ModuleBase::TITLE("elecstate", "dm_from_psi");
-    ModuleBase::timer::start("elecstate", "dm_from_psi");
-    dm_from_psi_ddla(ParaV, wg, wfc, DM, ddla);
-    ModuleBase::timer::end("elecstate", "dm_from_psi");
+    dm_from_psi_impl(ParaV, wg, wfc, DM, ddla);
 }
 
 template <typename TR>
@@ -448,24 +327,19 @@ void dm_from_psi(const Parallel_Orbitals* ParaV,
                 const ModuleBase::matrix& wg,
                 const psi::Psi<std::complex<double>>& wfc,
                 module_dm::DensityMatrix<std::complex<double>, TR>& DM,
-                const ModuleBase::DdlaContext& ddla)
+                const ModuleBase::DdlaContext* ddla)
 {
-    assert(ParaV != nullptr);
-    ModuleBase::TITLE("elecstate", "dm_from_psi");
-    ModuleBase::timer::start("elecstate", "dm_from_psi");
-    dm_from_psi_ddla(ParaV, wg, wfc, DM, ddla);
-    ModuleBase::timer::end("elecstate", "dm_from_psi");
+    dm_from_psi_impl(ParaV, wg, wfc, DM, ddla);
 }
 
 template void dm_from_psi(const Parallel_Orbitals* ParaV,
                          const ModuleBase::matrix& wg,
                          const psi::Psi<std::complex<double>>& wfc,
                          module_dm::DensityMatrix<std::complex<double>, std::complex<double>>& DM,
-                         const ModuleBase::DdlaContext& ddla);
+                         const ModuleBase::DdlaContext* ddla);
 template void dm_from_psi(const Parallel_Orbitals* ParaV,
                          const ModuleBase::matrix& wg,
                          const psi::Psi<std::complex<double>>& wfc,
                          module_dm::DensityMatrix<std::complex<double>, double>& DM,
-                         const ModuleBase::DdlaContext& ddla);
-#endif // __DDLA
+                         const ModuleBase::DdlaContext* ddla);
 } // namespace module_dm

@@ -3,8 +3,8 @@
 #include "source_base/global_function.h"
 #include "source_base/module_container/ATen/kernels/blas.h"
 #include "source_base/module_device/memory_op.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
-#include "source_lcao/module_rt/td_linalg.h"
 
 #ifdef __CUBLASMP
 #include "kernels/cuda/band_energy_kernel.cuh"
@@ -123,35 +123,35 @@ void compute_ekb(const Parallel_Orbitals* pv,
     std::complex<double>* eij = new std::complex<double>[pv->para_2d().size()];
     ModuleBase::GlobalFunc::ZEROS(eij, pv->para_2d().size());
 
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nlocal,
-            1.0,
-            Htmp,
-            pv->para_2d().desc(),
-            psi_k,
-            pv->desc_wfc,
-            0.0,
-            tmp1,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  Htmp,
+                                  pv->para_2d().desc(),
+                                  psi_k,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  tmp1,
+                                  pv->desc_wfc);
 
-    td_gemm(ddla,
-            'C',
-            'N',
-            nband,
-            nband,
-            nlocal,
-            1.0,
-            psi_k,
-            pv->desc_wfc,
-            tmp1,
-            pv->desc_wfc,
-            0.0,
-            eij,
-            pv->desc_Eij);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'C',
+                                  'N',
+                                  nband,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  psi_k,
+                                  pv->desc_wfc,
+                                  tmp1,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  eij,
+                                  pv->desc_Eij);
 
     ekb_from_eij(pv, nband, eij, ekb, ofs_running, output_info);
 

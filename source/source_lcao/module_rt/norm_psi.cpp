@@ -3,7 +3,7 @@
 #include "source_base/global_function.h" // ModuleBase::GlobalFunc::ZEROS
 #include "source_base/module_container/ATen/kernels/blas.h"
 #include "source_base/module_external/blas_connector.h"
-#include "source_lcao/module_rt/td_linalg.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/timer.h"
 
 #ifdef __CUBLASMP
@@ -85,35 +85,35 @@ void norm_psi(const Parallel_Orbitals* pv,
     std::complex<double>* Cij = new std::complex<double>[pv->para_2d().size()];
     ModuleBase::GlobalFunc::ZEROS(Cij, pv->para_2d().size());
 
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nlocal,
-            1.0,
-            Stmp,
-            pv->para_2d().desc(),
-            psi_k,
-            pv->desc_wfc,
-            0.0,
-            tmp1,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  Stmp,
+                                  pv->para_2d().desc(),
+                                  psi_k,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  tmp1,
+                                  pv->desc_wfc);
 
-    td_gemm(ddla,
-            'C',
-            'N',
-            nband,
-            nband,
-            nlocal,
-            1.0,
-            psi_k,
-            pv->desc_wfc,
-            tmp1,
-            pv->desc_wfc,
-            0.0,
-            Cij,
-            pv->desc_Eij);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'C',
+                                  'N',
+                                  nband,
+                                  nband,
+                                  nlocal,
+                                  1.0,
+                                  psi_k,
+                                  pv->desc_wfc,
+                                  tmp1,
+                                  pv->desc_wfc,
+                                  0.0,
+                                  Cij,
+                                  pv->desc_Eij);
 
     if (print_matrix)
     {
@@ -144,20 +144,20 @@ void norm_psi(const Parallel_Orbitals* pv,
 
     BlasConnector::copy(pv->nloc_wfc, psi_k, 1, tmp1, 1);
 
-    td_gemm(ddla,
-            'N',
-            'N',
-            nlocal,
-            nband,
-            nband,
-            1.0,
-            tmp1,
-            pv->desc_wfc,
-            Cij,
-            pv->desc_Eij,
-            0.0,
-            psi_k,
-            pv->desc_wfc);
+    ModuleBase::ddla_linalg::gemm(ddla,
+                                  'N',
+                                  'N',
+                                  nlocal,
+                                  nband,
+                                  nband,
+                                  1.0,
+                                  tmp1,
+                                  pv->desc_wfc,
+                                  Cij,
+                                  pv->desc_Eij,
+                                  0.0,
+                                  psi_k,
+                                  pv->desc_wfc);
 
     if (print_matrix)
     {

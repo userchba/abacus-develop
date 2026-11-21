@@ -46,6 +46,20 @@ inline std::size_t local_size(const int* desc)
     return static_cast<std::size_t>(desc[8]) * static_cast<std::size_t>(ncol);
 }
 
+// Whether the local block of desc on this rank has rows beyond the matrix:
+// its leading dimension exceeds its row count, as for a narrow matrix that
+// shares the leading dimension of a larger layout (desc_wfc, desc_Eij).
+inline bool has_padding_rows(const int* desc)
+{
+    int nprow = 0;
+    int npcol = 0;
+    int myrow = 0;
+    int mycol = 0;
+    Cblacs_gridinfo(desc[1], &nprow, &npcol, &myrow, &mycol);
+    const int nrow = numroc_(&desc[2], &desc[4], &myrow, &desc[6], &nprow);
+    return local_size(desc) > 0 && nrow < desc[8];
+}
+
 // Copy the local block of a host matrix into an existing matrix in the handle's memory.
 template <typename T>
 inline void copy_to_device(const ddla::DdlaHandle_t& handle,
@@ -108,12 +122,18 @@ class BackendBlock
   public:
     using Value = typename std::remove_const<T>::type;
 
-    BackendBlock(const DdlaContext& ddla, T* host, const int* desc)
+    BackendBlock(const DdlaContext& ddla, T* host, const int* desc) : BackendBlock(ddla, host, desc, true)
+    {
+    }
+
+    // copy_in false: the block is only written, so a GPU handle allocates
+    // it on the GPU without copying the host content there.
+    BackendBlock(const DdlaContext& ddla, T* host, const int* desc, const bool copy_in)
         : handle_(ddla.handle()), on_gpu_(ddla.on_gpu()), host_(host), desc_(desc), device_(ddla.handle())
     {
         if (on_gpu_)
         {
-            device_ = to_device<Value>(handle_, host_, desc_);
+            device_ = copy_in ? to_device<Value>(handle_, host_, desc_) : allocate<Value>(handle_, desc_);
         }
     }
 

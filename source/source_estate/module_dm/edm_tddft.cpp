@@ -5,9 +5,9 @@
 #include "source_base/module_container/ATen/kernels/lapack.h"
 #include "source_base/module_container/ATen/kernels/memory.h" // memory operations (Tensor)
 #include "source_base/module_device/memory_op.h"              // memory operations
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/lapack_connector.h"
 #include "source_base/module_external/scalapack_connector.h"
-#include "source_lcao/module_rt/td_linalg.h"
 
 namespace module_dm
 {
@@ -83,11 +83,11 @@ void edm_tddft(Parallel_Orbitals& pv,
             const char right = 'R';
             const char left = 'L';
             std::vector<int> ddla_ipiv;
-            module_rt::td_ddla_getrf(*ddla, pv.para_2d(), Sinv, ddla_ipiv);
+            ModuleBase::ddla_linalg::getrf(*ddla, pv.para_2d(), Sinv, ddla_ipiv);
             BlasConnector::copy(nloc, Htmp, inc, tmp1, inc);
-            module_rt::td_ddla_getrs(*ddla, pv.para_2d(), right, nlocal, Sinv, ddla_ipiv, tmp1, pv.para_2d().desc());
+            ModuleBase::ddla_linalg::getrs(*ddla, pv.para_2d(), right, nlocal, Sinv, ddla_ipiv, tmp1, pv.para_2d().desc());
             BlasConnector::copy(nloc, Htmp, inc, tmp3, inc);
-            module_rt::td_ddla_getrs(*ddla, pv.para_2d(), left, nlocal, Sinv, ddla_ipiv, tmp3, pv.para_2d().desc());
+            ModuleBase::ddla_linalg::getrs(*ddla, pv.para_2d(), left, nlocal, Sinv, ddla_ipiv, tmp3, pv.para_2d().desc());
         }
         else
         {
@@ -132,81 +132,81 @@ void edm_tddft(Parallel_Orbitals& pv,
                                       &info);
 
             // tmp1 = Htmp * Sinv
-            module_rt::td_gemm(ddla,
-                               N_char,
-                               N_char,
-                               nlocal,
-                               nlocal,
-                               nlocal,
-                               one_complex,
-                               Htmp,
-                               pv.para_2d().desc(),
-                               Sinv,
-                               pv.para_2d().desc(),
-                               zero_complex,
-                               tmp1,
-                               pv.para_2d().desc());
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nlocal,
+                                          nlocal,
+                                          one_complex,
+                                          Htmp,
+                                          pv.para_2d().desc(),
+                                          Sinv,
+                                          pv.para_2d().desc(),
+                                          zero_complex,
+                                          tmp1,
+                                          pv.para_2d().desc());
 
             // tmp3 = Sinv * Htmp
-            module_rt::td_gemm(ddla,
-                               N_char,
-                               N_char,
-                               nlocal,
-                               nlocal,
-                               nlocal,
-                               one_complex,
-                               Sinv,
-                               pv.para_2d().desc(),
-                               Htmp,
-                               pv.para_2d().desc(),
-                               zero_complex,
-                               tmp3,
-                               pv.para_2d().desc());
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nlocal,
+                                          nlocal,
+                                          one_complex,
+                                          Sinv,
+                                          pv.para_2d().desc(),
+                                          Htmp,
+                                          pv.para_2d().desc(),
+                                          zero_complex,
+                                          tmp3,
+                                          pv.para_2d().desc());
         }
 
         // tmp2 = tmp1^T * tmp_dmk
-        module_rt::td_gemm(ddla,
-                           T_char,
-                           N_char,
-                           nlocal,
-                           nlocal,
-                           nlocal,
-                           one_complex,
-                           tmp1,
-                           pv.para_2d().desc(),
-                           tmp_dmk,
-                           pv.para_2d().desc(),
-                           zero_complex,
-                           tmp2,
-                           pv.para_2d().desc());
+        ModuleBase::ddla_linalg::gemm(ddla,
+                                      T_char,
+                                      N_char,
+                                      nlocal,
+                                      nlocal,
+                                      nlocal,
+                                      one_complex,
+                                      tmp1,
+                                      pv.para_2d().desc(),
+                                      tmp_dmk,
+                                      pv.para_2d().desc(),
+                                      zero_complex,
+                                      tmp2,
+                                      pv.para_2d().desc());
 
         // tmp4 = tmp_dmk * tmp3^T
-        module_rt::td_gemm(ddla,
-                           N_char,
-                           T_char,
-                           nlocal,
-                           nlocal,
-                           nlocal,
-                           one_complex,
-                           tmp_dmk,
-                           pv.para_2d().desc(),
-                           tmp3,
-                           pv.para_2d().desc(),
-                           zero_complex,
-                           tmp4,
-                           pv.para_2d().desc());
+        ModuleBase::ddla_linalg::gemm(ddla,
+                                      N_char,
+                                      T_char,
+                                      nlocal,
+                                      nlocal,
+                                      nlocal,
+                                      one_complex,
+                                      tmp_dmk,
+                                      pv.para_2d().desc(),
+                                      tmp3,
+                                      pv.para_2d().desc(),
+                                      zero_complex,
+                                      tmp4,
+                                      pv.para_2d().desc());
 
         // tmp4 = 0.5 * (tmp2 + tmp4)
-        module_rt::td_geadd(ddla,
-                            N_char,
-                            nlocal,
-                            nlocal,
-                            half_complex,
-                            tmp2,
-                            pv.para_2d().desc(),
-                            half_complex,
-                            tmp4,
-                            pv.para_2d().desc());
+        ModuleBase::ddla_linalg::geadd(ddla,
+                                       N_char,
+                                       nlocal,
+                                       nlocal,
+                                       half_complex,
+                                       tmp2,
+                                       pv.para_2d().desc(),
+                                       half_complex,
+                                       tmp4,
+                                       pv.para_2d().desc());
 
         BlasConnector::copy(nloc, tmp4, inc, tmp_edmk.c, inc);
 

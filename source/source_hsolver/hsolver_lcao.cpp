@@ -124,17 +124,17 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
                                      pes->skip_weights);
 
         elecstate::calEBand(pes->ekb, pes->wg, pes->f_en);
+        // ks_solver ddla: the density matrix on the handle of the solve, now on
+        // the grid of psi (after kpar pools too); ScaLAPACK otherwise.
+        const ModuleBase::DdlaContext* ddla_dm = nullptr;
 #ifdef __DDLA
         if (ddla != nullptr)
         {
             ddla->bind(this->ParaV->para_2d(), this->use_gpu);
-            module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm, *ddla);
+            ddla_dm = ddla;
         }
-        else
 #endif
-        {
-            module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm);
-        }
+        module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm, ddla_dm);
         dm.cal_dmr(-1);
 
         if (!skip_charge)
