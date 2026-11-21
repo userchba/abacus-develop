@@ -58,6 +58,18 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
 
     if (this->method != "pexsi")
     {
+#ifdef __DDLA
+        // ks_solver ddla: one LibDDLA handle on the grid of H(k), S(k), psi and the
+        // density matrix serves every k point and the density matrix. The caller's
+        // handle also serves its later solves; binding it again to the same grid
+        // keeps the existing handle.
+        ModuleBase::DdlaContext local_ddla;
+        ModuleBase::DdlaContext* ddla = nullptr;
+        if (this->method == "ddla")
+        {
+            ddla = (this->ddla_context != nullptr) ? this->ddla_context : &local_ddla;
+        }
+#endif
     #ifdef __MPI
     #ifdef __CUDA
         if (this->method == "cusolver" && this->world_nproc > 1)
@@ -74,17 +86,12 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
     #endif
         if (this->kpar_lcao == 1)
         {
-            const ModuleBase::DdlaContext* ddla = nullptr;
+            const ModuleBase::DdlaContext* ddla_k = nullptr;
 #ifdef __DDLA
-            // One LibDDLA handle on the grid of H(k) and S(k) serves every k point.
-            // The caller's handle also serves its later solves; binding it again
-            // to the same grid keeps the existing handle.
-            ModuleBase::DdlaContext local_ddla;
-            if (this->method == "ddla")
+            if (ddla != nullptr)
             {
-                ModuleBase::DdlaContext& context = (this->ddla_context != nullptr) ? *this->ddla_context : local_ddla;
-                context.bind(this->ParaV->para_2d(), this->use_gpu);
-                ddla = &context;
+                ddla->bind(this->ParaV->para_2d(), this->use_gpu);
+                ddla_k = ddla;
             }
 #endif
             /// Loop over k points for solve Hamiltonian to eigenpairs(eigenvalues and eigenvectors).
@@ -98,7 +105,7 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
                 psi.fix_k(ik);
 
                 /// solve eigenvector and eigenvalue for H(k)
-                this->hamiltSolvePsiK(hk, sk, psi, &(pes->ekb(ik, 0)), ddla);
+                this->hamiltSolvePsiK(hk, sk, psi, &(pes->ekb(ik, 0)), ddla_k);
             }
         }
         else
@@ -117,7 +124,17 @@ void HSolverLCAO<TK>::solve(HSMatrix<TK>& hs,
                                      pes->skip_weights);
 
         elecstate::calEBand(pes->ekb, pes->wg, pes->f_en);
-        module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm);
+#ifdef __DDLA
+        if (ddla != nullptr)
+        {
+            ddla->bind(this->ParaV->para_2d(), this->use_gpu);
+            module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm, *ddla);
+        }
+        else
+#endif
+        {
+            module_dm::dm_from_psi(this->ParaV, pes->wg, psi, dm);
+        }
         dm.cal_dmr(-1);
 
         if (!skip_charge)

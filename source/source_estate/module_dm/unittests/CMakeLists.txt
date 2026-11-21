@@ -89,3 +89,33 @@ if(ENABLE_MPI)
             ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/atom_pair.cpp
             ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp)
 endif()
+
+if(ENABLE_DDLA)
+  addtest(
+    TARGET MODULE_ESTATE_dm_from_psi_ddla
+    LIBS parameter base device psi ddla::ddla
+    SOURCES test_dm_from_psi_ddla.cpp
+            ../dm_from_psi.cpp
+            ../density_matrix.cpp
+            ../dmr_gamma.cpp
+            ../dmr_init.cpp
+            ../dm_setter.cpp
+            ../dm_getter.cpp
+            tmp_mocks.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/base_matrix.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/hcontainer.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/atom_pair.cpp
+            ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp)
+  foreach(rank_count IN ITEMS 2 4 6)
+    add_test(
+      NAME MODULE_ESTATE_dm_from_psi_ddla_np${rank_count}
+      COMMAND
+        ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+        ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_ESTATE_dm_from_psi_ddla> ${MPIEXEC_POSTFLAGS}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    set_tests_properties(
+      MODULE_ESTATE_dm_from_psi_ddla_np${rank_count}
+      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  endforeach()
+endif()

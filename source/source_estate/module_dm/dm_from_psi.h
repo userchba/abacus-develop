@@ -5,6 +5,13 @@
 #include "source_base/matrix.h"
 #include "source_psi/psi.h"
 
+#ifdef __DDLA
+namespace ModuleBase
+{
+class DdlaContext;
+}
+#endif
+
 namespace module_dm
 {
 /**
@@ -46,6 +53,39 @@ void dm_from_psi(const Parallel_Orbitals* ParaV,
                 const ModuleBase::matrix& wg,
                 const psi::Psi<std::complex<double>>& wfc,
                 DensityMatrix<std::complex<double>, TR>& DM);
+
+#ifdef __DDLA
+/**
+ * @brief dm_from_psi() with the distributed GEMM in LibDDLA (ks_solver ddla), Gamma-only case
+ *
+ * Same result and convention as dm_from_psi(). The GEMM runs on the backend of
+ * ddla, which must be bound to the grid of ParaV: with a GPU handle the
+ * weighted wavefunctions of every k-point are copied to the GPU and the
+ * k-point block of the density matrix is copied back.
+ *
+ * @param ddla LibDDLA handle bound to the grid of ParaV
+ */
+void dm_from_psi(const Parallel_Orbitals* ParaV,
+                const ModuleBase::matrix& wg,
+                const psi::Psi<double>& wfc,
+                DensityMatrix<double, double>& DM,
+                const ModuleBase::DdlaContext& ddla);
+
+/**
+ * @brief dm_from_psi() with the distributed GEMM in LibDDLA (ks_solver ddla), multi-k case
+ *
+ * Same result and conj-first convention as dm_from_psi(), see the Gamma-only
+ * overload for the backend.
+ *
+ * @param ddla LibDDLA handle bound to the grid of ParaV
+ */
+template <typename TR>
+void dm_from_psi(const Parallel_Orbitals* ParaV,
+                const ModuleBase::matrix& wg,
+                const psi::Psi<std::complex<double>>& wfc,
+                DensityMatrix<std::complex<double>, TR>& DM,
+                const ModuleBase::DdlaContext& ddla);
+#endif
 
 /**
  * @brief Calculate one k-point block of the density matrix (Gamma-only case)
