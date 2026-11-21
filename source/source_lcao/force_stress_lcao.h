@@ -31,6 +31,11 @@ struct VdwResult;
 
 class TwoCenterBundle;
 
+namespace ModuleBase
+{
+class DdlaContext;
+}
+
 // INPUT scalars that steer the force/stress kernels. Bundling them into one
 // aggregate keeps getForceStress and its helpers from each re-reading the
 // global PARAM object, and collapses five arguments into a single reference.
@@ -133,7 +138,8 @@ class Force_Stress_LCAO
                         const Exx_Info& exx_info,
                         const FSCalcConfig& cfg,
                         TD_info* td_info,
-                        hamilt::Hamilt<T>* p_hamilt);
+                        hamilt::Hamilt<T>* p_hamilt,
+                        const ModuleBase::DdlaContext* ddla);
 
   private:
     int nat;
@@ -157,6 +163,7 @@ class Force_Stress_LCAO
                          const FSCalcConfig& cfg,
                          TD_info* td_info,
                          hamilt::Hamilt<T>* p_hamilt,
+                         const ModuleBase::DdlaContext* ddla,
                          LCAOForceParts& parts,
                          LCAOStressParts& sparts);
 

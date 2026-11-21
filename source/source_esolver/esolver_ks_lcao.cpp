@@ -395,7 +395,8 @@ void ESolver_KS_LCAO<TK, TR>::cal_force(BaseCell& basecell, ModuleBase::matrix& 
                        this->exx_info_,
                        fs_cfg,
                        this->get_td_info(),
-                       static_cast<hamilt::Hamilt<TK>*>(this->p_hamilt));
+                       static_cast<hamilt::Hamilt<TK>*>(this->p_hamilt),
+                       this->bound_ddla());
 
     // Release the adjacency records after the force/stress calculation.
     this->RA.delete_grid();
@@ -403,6 +404,18 @@ void ESolver_KS_LCAO<TK, TR>::cal_force(BaseCell& basecell, ModuleBase::matrix& 
     this->have_force = true;
 
     ModuleBase::timer::end("ESolver_KS_LCAO", "cal_force");
+}
+
+template <typename TK, typename TR>
+const ModuleBase::DdlaContext* ESolver_KS_LCAO<TK, TR>::bound_ddla() const
+{
+#ifdef __DDLA
+    if (this->ddla_ctx_.is_bound())
+    {
+        return &this->ddla_ctx_;
+    }
+#endif
+    return nullptr;
 }
 
 template <typename TK, typename TR>

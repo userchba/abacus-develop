@@ -55,6 +55,10 @@ class ESolver_KS_LCAO : public ESolver_KS
     //! Optional solver-owned RT state passed to LCAO consumers.
     virtual TD_info* get_td_info() const { return nullptr; }
 
+    //! The LibDDLA handle of this run (ks_solver ddla or td_la_backend ddla),
+    //! bound to the grid of pv; nullptr when none is bound.
+    const ModuleBase::DdlaContext* bound_ddla() const;
+
     //! Prepare an ionic step using istep for both initialization and initial-state output.
     virtual void before_scf(UnitCell& ucell, const int istep) override;
 

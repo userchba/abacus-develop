@@ -12,7 +12,8 @@ module_dm::DensityMatrix<double, double> CalEDM<double>::cal_edm(const elecstate
     const int& nspin, 
     const int& nbands,
     const UnitCell& ucell,
-    Record_adj& ra) const
+    Record_adj& ra,
+    const ModuleBase::DdlaContext* ddla) const
 {
     ModuleBase::matrix wg_ekb;
     wg_ekb.create(nspin, nbands);
@@ -41,7 +42,7 @@ module_dm::DensityMatrix<double, double> CalEDM<double>::cal_edm(const elecstate
     else
 #endif
     {
-        module_dm::dm_from_psi(&pv, wg_ekb, psi, edm);
+        module_dm::dm_from_psi(&pv, wg_ekb, psi, edm, ddla);
     }
     edm.init_dmr(ra, &ucell);
     edm.cal_dmr(-1);
@@ -58,7 +59,8 @@ module_dm::DensityMatrix<std::complex<double>, double> CalEDM<std::complex<doubl
     const int& nspin, 
     const int& nbands,
     const UnitCell& ucell,
-    Record_adj& ra) const
+    Record_adj& ra,
+    const ModuleBase::DdlaContext* ddla) const
 {
 
     // construct a DensityMatrix object
@@ -101,7 +103,7 @@ module_dm::DensityMatrix<std::complex<double>, double> CalEDM<std::complex<doubl
     else
     {
         // dm_from_psi
-        module_dm::dm_from_psi(&pv, wg_ekb, psi, edm);
+        module_dm::dm_from_psi(&pv, wg_ekb, psi, edm, ddla);
     }
 
     // cal_dm_2d

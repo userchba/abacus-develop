@@ -7,6 +7,11 @@
 #include "source_estate/module_pot/potential_new.h"
 #include "source_psi/psi.h"
 
+namespace ModuleBase
+{
+class DdlaContext;
+}
+
 template <typename T>
 class Force_Stress_LCAO;
 
@@ -32,7 +37,8 @@ class CalEDM
                                                 const int& nspin,
                                                 const int& nbands,
                                                 const UnitCell& ucell,
-                                                Record_adj& ra) const;
+                                                Record_adj& ra,
+                                                const ModuleBase::DdlaContext* ddla) const;
 };
 
 #endif

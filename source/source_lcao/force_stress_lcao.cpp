@@ -96,7 +96,8 @@ void Force_Stress_LCAO<T>::getForceStress(UnitCell& ucell,
                                           const Exx_Info& exx_info,
                                           const FSCalcConfig& cfg,
                                           TD_info* td_info,
-                                          hamilt::Hamilt<T>* p_hamilt)
+                                          hamilt::Hamilt<T>* p_hamilt,
+                                          const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("Force_Stress_LCAO", "getForceStress");
     ModuleBase::timer::start("Force_Stress_LCAO", "getForceStress");
@@ -166,7 +167,7 @@ void Force_Stress_LCAO<T>::getForceStress(UnitCell& ucell,
     // Calculate operator-based force/stress terms (kinetic, overlap,
     // nonlocal, rt-TDDFT hybrid gauge, local Pulay term and DeltaSpin).
     this->cal_operator_fs(ucell, gd, pv, pelec, dmat, psi, two_center_bundle,
-                          orb, kv, isforce, isstress, cfg, td_info, p_hamilt, parts, sparts);
+                          orb, kv, isforce, isstress, cfg, td_info, p_hamilt, ddla, parts, sparts);
 
     // MPI reduction for forces
     if (isforce)
@@ -247,6 +248,7 @@ void Force_Stress_LCAO<T>::cal_operator_fs(UnitCell& ucell,
                                              const FSCalcConfig& cfg,
                                              TD_info* td_info,
                                              hamilt::Hamilt<T>* p_hamilt,
+                                             const ModuleBase::DdlaContext* ddla,
                                              LCAOForceParts& parts,
                                              LCAOStressParts& sparts)
 {
@@ -254,9 +256,9 @@ void Force_Stress_LCAO<T>::cal_operator_fs(UnitCell& ucell,
 
     // Calculate forces and stresses using new operator-based methods
     // Step 1: Calculate Energy Density Matrix (EDM) for overlap force
-    // EDM = Σ_k w_k * ε_k * |ψ_k><ψ_k|
+    // EDM = Σ_k w_k * ε_k * |ψ_k><ψ_k|, on LibDDLA when the run has a handle
     module_dm::DensityMatrix<T, double> edm = edm_cal.cal_edm(pelec, *psi, *dmat.dm, kv, pv,
-                                                           cfg.nspin, cfg.nbands, ucell, *this->RA);
+                                                           cfg.nspin, cfg.nbands, ucell, *this->RA, ddla);
 
     // Step 2: Handle different spin cases
     if (cfg.nspin == 1 || cfg.nspin == 2)
