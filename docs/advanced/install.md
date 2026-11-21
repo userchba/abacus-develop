@@ -179,7 +179,7 @@ cmake -B build -DENABLE_DDLA=ON -DLibDDLA_DIR=/path/to/libddla/lib64/cmake/LibDD
 
 Instead of `LibDDLA_DIR`, you can add the LibDDLA installation prefix to `CMAKE_PREFIX_PATH`. `ENABLE_DDLA` requires `ENABLE_LCAO` and `ENABLE_MPI`, and is supported by the CMake build only.
 
-When LibDDLA runs on the GPUs and communicates through NCCL, every MPI process needs a GPU of its own, also with MPS: run at most as many MPI processes on a node as it has visible GPUs. Otherwise ABACUS stops with a message. `ks_solver ddla` with `kpar` larger than 1 is supported on the CPU only.
+When LibDDLA runs on the GPUs and communicates through NCCL, every MPI process needs a GPU of its own, also with MPS: run at most as many MPI processes on a node as it has visible GPUs. Otherwise ABACUS stops with a message. With `kpar` larger than 1, each k-point pool runs LibDDLA on its own process grid; on the GPUs this needs a LibDDLA that keeps every process on its own GPU for the handle of a pool, and ABACUS stops with a message when LibDDLA moves a process to another GPU.
 
 ## Build ABACUS with make
 

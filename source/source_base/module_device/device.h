@@ -43,6 +43,12 @@ void output_device_info(std::ostream& output, const std::string& device);
 bool probe_gpu_availability();
 
 /**
+ * @brief The GPU that the calling process currently uses (cudaGetDevice / hipGetDevice)
+ * @return Device ID, or -1 in a build without GPU support or when it cannot be queried
+ */
+int get_current_device_id();
+
+/**
  * @brief Get the device flag object
  * for source_io PARAM.inp.device
  */

@@ -38,6 +38,20 @@ int get_node_rank_with_mpi_shared(const MPI_Comm mpi_comm) {
 }
 #endif
 
+int get_current_device_id() {
+    int device_id = -1;
+#if defined(__CUDA)
+    if (cudaGetDevice(&device_id) != cudaSuccess) {
+        device_id = -1;
+    }
+#elif defined(__ROCM)
+    if (hipGetDevice(&device_id) != hipSuccess) {
+        device_id = -1;
+    }
+#endif
+    return device_id;
+}
+
 bool probe_gpu_availability() {
 #if defined(__CUDA)
     int device_count = 0;
