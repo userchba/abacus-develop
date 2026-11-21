@@ -44,7 +44,7 @@ The ABACUS program will automatically determine whether the current ELPA support
 ## Run with the GPU support by editing the INPUT script:
 
 In `INPUT` file we need to set the input parameter [device](../input_files/input-main.md#device) to `gpu`. If this parameter is not set, ABACUS will try to determine if there are available GPUs.
-- Set `ks_solver`: For the PW basis, CG, BPCG, Davidson, and Davidson subspace methods are supported on GPU; set the input parameter [ks_solver](../input_files/input-main.md#ks_solver) to `cg`, `bpcg`, `dav`, or `dav_subspace`. For the LCAO basis, `cusolver`, `cusolvermp`, and `elpa` are supported on GPU.
+- Set `ks_solver`: For the PW basis, CG, BPCG, Davidson, and Davidson subspace methods are supported on GPU; set the input parameter [ks_solver](../input_files/input-main.md#ks_solver) to `cg`, `bpcg`, `dav`, or `dav_subspace`. For the LCAO basis, `cusolver`, `cusolvermp`, `elpa`, and `ddla` (ABACUS [built with LibDDLA](../install.md#build-with-libddla-support)) are supported on GPU.
 - **single-card**: ABACUS allows for single-GPU acceleration. You can run ABACUS without any MPI process by command `abacus`, and `ks_solver cusolver` is recommended for the LCAO basis. *note: avoid using `mpirun -n 1 abacus`*.
 - **multi-cards**: ABACUS allows for multi-GPU acceleration. If you have multiple GPU cards, you can run ABACUS with several MPI processes, and each process will utilize one GPU card. For example, the command `mpirun -n 2 abacus` will by default launch two GPUs for computation. If you only have one card, this command will only start one GPU. *note: the number of MPI processes SHOULD be equal to the number of GPU cards, unless you are using MPS in your computer.*
 
@@ -57,5 +57,6 @@ PW basis:
 - By default, CUDA architectures are automatically selected based on the CUDA Toolkit version. For CUDA versions before 13.0, architectures 60, 70, 75, 80, 86, 89, and 90 are compiled (if supported by the CUDA version). For CUDA 13.0 and later, only architectures 75 and above are compiled, as CUDA 13 dropped support for older architectures. This can be overridden using the CMake variable [`CMAKE_CUDA_ARCHITECTURES`](https://cmake.org/cmake/help/latest/variable/CMAKE_CUDA_ARCHITECTURES.html) or the environmental variable [`CUDAARCHS`](https://cmake.org/cmake/help/latest/envvar/CUDAARCHS.html).
 
 LCAO basis:
+- `ks_solver ddla` and `td_la_backend ddla` need a GPU of their own for every MPI process when LibDDLA communicates through NCCL, also with MPS; ABACUS stops with a message otherwise. On GPU, `ks_solver ddla` supports `kpar 1` only.
 - Unless there is a specific reason, avoid using multiple GPUs, as it can be slower than using a single GPU. This is because the generalized eigenvalue solution of the LCAO basis set will incur additional communication overhead when calculated on multiple cards. When the memory limit of a GPU card makes it insufficient to complete the task, it is recommended to use multiple cards for calculation.
 - When using elpa on GPUs, some ELPA internal logs will be output.

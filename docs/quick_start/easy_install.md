@@ -179,6 +179,7 @@ For some dependencies built with CMake, such as Libxc, dftd4, cereal, and nlohma
   - `ENABLE_COVERAGE=OFF`: Build ABACUS executable supporting [coverage analysis](../CONTRIBUTING.md#generating-code-coverage-report). This feature has a drastic impact on performance.
   - `ENABLE_ASAN=OFF`: Build with Address Sanitizer. This feature would help detecting memory problems.
   - `ENABLE_ELPA=ON`: Use ELPA library in LCAO calculations. If this value is set to OFF, ABACUS can be compiled without ELPA library.
+  - `ENABLE_DDLA=OFF`: [Enable LibDDLA](../advanced/install.md#build-with-libddla-support) for the `ks_solver ddla` LCAO eigensolver and the `td_la_backend ddla` RT-TDDFT backend. Requires `ENABLE_LCAO` and `ENABLE_MPI`.
 
 Here is an example:
 

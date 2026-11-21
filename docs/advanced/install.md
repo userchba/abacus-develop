@@ -162,6 +162,25 @@ To build ABACUS with PEXSI support, you need to compile PEXSI and its dependenci
 
 After compiling PEXSI, pass `-DENABLE_PEXSI=ON` to CMake. ABACUS uses the CMake config package provided by PEXSI; if PEXSI or its dependencies are not installed in standard paths, add their installation prefixes to `CMAKE_PREFIX_PATH`.
 
+## Build with LibDDLA support
+
+LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic matrices, with a CPU backend and an optional GPU (CUDA) backend. ABACUS uses it in LCAO calculations for
+
+- `ks_solver ddla`: the generalized eigenproblem $H(k)C = S(k)C\,\mathrm{diag}(\epsilon)$ is solved with the LibDDLA `phegvd` routine on the process grid of the Hamiltonian; $H$, $S$ and the wave functions stay distributed and are never gathered onto one process;
+- `td_la_backend ddla`: the matrix products, additions and LU solves of the real-time TDDFT propagators run in LibDDLA instead of ScaLAPACK.
+
+Both run on the CPU, or on the GPUs with `device gpu`.
+
+Build LibDDLA with the same MPI library as ABACUS, and with GPU support if you want to use `device gpu`. `ks_solver ddla` needs a LibDDLA version that provides `phegvd`. ABACUS finds LibDDLA through the CMake package that LibDDLA installs:
+
+```bash
+cmake -B build -DENABLE_DDLA=ON -DLibDDLA_DIR=/path/to/libddla/lib64/cmake/LibDDLA
+```
+
+Instead of `LibDDLA_DIR`, you can add the LibDDLA installation prefix to `CMAKE_PREFIX_PATH`. `ENABLE_DDLA` requires `ENABLE_LCAO` and `ENABLE_MPI`, and is supported by the CMake build only.
+
+When LibDDLA runs on the GPUs and communicates through NCCL, every MPI process needs a GPU of its own, also with MPS: run at most as many MPI processes on a node as it has visible GPUs. Otherwise ABACUS stops with a message. `ks_solver ddla` with `kpar` larger than 1 is supported on the CPU only.
+
 ## Build ABACUS with make
 
 > Note: We suggest using CMake to configure and compile.
