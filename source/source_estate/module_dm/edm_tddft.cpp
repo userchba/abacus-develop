@@ -78,16 +78,29 @@ void edm_tddft(Parallel_Orbitals& pv,
 
         if (ddla != nullptr)
         {
-            // One LU factorization of S and two solves replace the explicit inverse:
-            // tmp1 = Htmp * S^{-1} (X S = H) and tmp3 = S^{-1} * Htmp (S X = H).
-            const char right = 'R';
-            const char left = 'L';
-            std::vector<int> ddla_ipiv;
-            ModuleBase::ddla_linalg::getrf(*ddla, pv.para_2d(), Sinv, ddla_ipiv);
-            BlasConnector::copy(nloc, Htmp, inc, tmp1, inc);
-            ModuleBase::ddla_linalg::getrs(*ddla, pv.para_2d(), right, nlocal, Sinv, ddla_ipiv, tmp1, pv.para_2d().desc());
-            BlasConnector::copy(nloc, Htmp, inc, tmp3, inc);
-            ModuleBase::ddla_linalg::getrs(*ddla, pv.para_2d(), left, nlocal, Sinv, ddla_ipiv, tmp3, pv.para_2d().desc());
+            using ModuleBase::ddla_linalg::ResidentLU;
+            using ModuleBase::ddla_linalg::ResidentMatrix;
+            using Complex = std::complex<double>;
+            const int* desc = pv.para_2d().desc();
+            const Complex* density_ptr = tmp_dmk;
+            const Complex* hamiltonian_ptr = Htmp;
+            const ResidentMatrix<Complex> density(ddla, density_ptr, desc);
+            const ResidentMatrix<Complex> hamiltonian(ddla, hamiltonian_ptr, desc);
+            ResidentMatrix<Complex> overlap(ddla, Sinv, desc, true);
+            const ResidentLU<Complex> factor(overlap);
+            ResidentMatrix<Complex> right(ddla, desc);
+            ResidentMatrix<Complex> left(ddla, desc);
+            ResidentMatrix<Complex> first(ddla, desc);
+            ResidentMatrix<Complex> result(ddla, tmp_edmk.c, desc, false);
+            ModuleBase::ddla_linalg::geadd('N', nlocal, nlocal, one_complex, hamiltonian, zero_complex, right);
+            ModuleBase::ddla_linalg::geadd('N', nlocal, nlocal, one_complex, hamiltonian, zero_complex, left);
+            factor.solve('R', nlocal, right);
+            factor.solve('L', nlocal, left);
+            ModuleBase::ddla_linalg::gemm('T', 'N', nlocal, nlocal, nlocal, one_complex, right, density, zero_complex, first);
+            ModuleBase::ddla_linalg::gemm('N', 'T', nlocal, nlocal, nlocal, one_complex, density, left, zero_complex, result);
+            ModuleBase::ddla_linalg::geadd('N', nlocal, nlocal, half_complex, first, half_complex, result);
+            result.copy_to_host(tmp_edmk.c);
+            continue;
         }
         else
         {

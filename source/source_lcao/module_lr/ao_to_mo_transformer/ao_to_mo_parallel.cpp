@@ -50,25 +50,23 @@ namespace LR
             coeff.fix_k(isk);
 
             //Vc
-            container::Tensor Vc(DAT::DT_DOUBLE, DEV::CpuDevice, { pVc.ncloc(), pVc.nrloc() });//row is "inside"(memory contiguity) for pblas
-            Vc.zero();
+            const ModuleBase::ddla_linalg::ResidentMatrix<double> ao(ddla, mat_ao[isk].data<double>(), pmat_ao.desc());
+            const ModuleBase::ddla_linalg::ResidentMatrix<double> coefficients(ddla, coeff.get_pointer(), pcoeff.desc());
+            ModuleBase::ddla_linalg::ResidentMatrix<double> vc(ddla, pVc.desc());
+            double* const output = mat_mo_data + start;
+            ModuleBase::ddla_linalg::ResidentMatrix<double> mo(ddla, output, pmat_mo.desc(), add_on);
 
             char transa = 'N';
             char transb = 'N';
             const double alpha = 1.0;
             const double beta = add_on ? 1.0 : 0.0;
-            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, nmo1, naos,
-                alpha, mat_ao[isk].data<double>(), i1, i1, pmat_ao.desc(),
-                coeff.get_pointer(), i1, imo1, pcoeff.desc(),
-                beta, Vc.data<double>(), i1, i1, pVc.desc());
+            ModuleBase::ddla_linalg::gemm(transa, transb, naos, nmo1, naos, alpha, ao, i1, i1, coefficients, i1, imo1, beta, vc, i1, i1);
 
             transa = 'T';
             // mat_mo = c ^ TVc
             // descC puts M(nvirt) to row
-            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, nmo2, nmo1, naos,
-                factor, coeff.get_pointer(), i1, imo2, pcoeff.desc(),
-                Vc.data<double>(), i1, i1, pVc.desc(),
-                beta, mat_mo_data + start, i1, i1, pmat_mo.desc());
+            ModuleBase::ddla_linalg::gemm(transa, transb, nmo2, nmo1, naos, factor, coefficients, i1, imo2, vc, i1, i1, beta, mo, i1, i1);
+            mo.copy_to_host(output);
 
         }
     }
@@ -114,25 +112,23 @@ namespace LR
             coeff.fix_k(isk);
 
             //Vc
-            container::Tensor Vc(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pVc.ncloc(), pVc.nrloc() });
-            Vc.zero();
+            const ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> ao(ddla, mat_ao[isk].data<std::complex<double>>(), pmat_ao.desc());
+            const ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> coefficients(ddla, coeff.get_pointer(), pcoeff.desc());
+            ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> vc(ddla, pVc.desc());
+            std::complex<double>* const output = mat_mo_data + start;
+            ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> mo(ddla, output, pmat_mo.desc(), add_on);
 
             char transa = 'N';
             char transb = 'N';
             const std::complex<double> alpha(1.0, 0.0);
             const std::complex<double> beta = add_on ? std::complex<double>(1.0, 0.0) : std::complex<double>(0.0, 0.0);
-            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, nmo1, naos,
-                alpha, mat_ao[isk].data<std::complex<double>>(), i1, i1, pmat_ao.desc(),
-                coeff.get_pointer(), i1, imo1, pcoeff.desc(),
-                beta, Vc.data<std::complex<double>>(), i1, i1, pVc.desc());
+            ModuleBase::ddla_linalg::gemm(transa, transb, naos, nmo1, naos, alpha, ao, i1, i1, coefficients, i1, imo1, beta, vc, i1, i1);
 
             transa = 'C';
             // mat_mo = c ^ TVc
             // descC puts M(nvirt) to row
-            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, nmo2, nmo1, naos,
-                factor, coeff.get_pointer(), i1, imo2, pcoeff.desc(),
-                Vc.data<std::complex<double>>(), i1, i1, pVc.desc(),
-                beta, mat_mo_data + start, i1, i1, pmat_mo.desc());
+            ModuleBase::ddla_linalg::gemm(transa, transb, nmo2, nmo1, naos, factor, coefficients, i1, imo2, vc, i1, i1, beta, mo, i1, i1);
+            mo.copy_to_host(output);
         }
     }
 }

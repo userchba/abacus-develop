@@ -54,20 +54,17 @@ std::vector<container::Tensor> cal_dm_trans_pblas(const ModuleBase::DdlaContext*
         // 1. [X*C_occ^T]^T=C_occ*X^T
         BlockCyclicDistribution pXc; // nvirt*naos
         LR_Util::setup_2d_division(pXc, px.nb(), naos, nmo2, px.ictxt());
-        container::Tensor Xc(DAT::DT_DOUBLE,
-                             DEV::CpuDevice,
-                             {pXc.ncloc(), pXc.nrloc()}); // row is "inside"(memory contiguity) for pblas
-        Xc.zero();
-        ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, nmo2, nmo1,
-            alpha, c.get_pointer(), 1, imo1, pc.desc(),
-            X_istate_data + x_start, 1, 1, px.desc(),
-            beta, Xc.data<double>(), 1, 1, pXc.desc());
+        const ModuleBase::ddla_linalg::ResidentMatrix<double> coefficients(ddla, c.get_pointer(), pc.desc());
+        const double* const x_input = X_istate_data + x_start;
+        const ModuleBase::ddla_linalg::ResidentMatrix<double> x(ddla, x_input, px.desc());
+        ModuleBase::ddla_linalg::ResidentMatrix<double> xc(ddla, pXc.desc());
+        double* const output = dm_trans[isk].data<double>();
+        ModuleBase::ddla_linalg::ResidentMatrix<double> dm(ddla, output, pmat.desc(), false);
+        ModuleBase::ddla_linalg::gemm(transa, transb, naos, nmo2, nmo1, alpha, coefficients, 1, imo1, x, 1, 1, beta, xc, 1, 1);
 
         // 2. C_virt*[X*C_occ^T]
-        ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, naos, nmo2,
-            factor, c.get_pointer(), 1, imo2, pc.desc(),
-            Xc.data<double>(), 1, 1, pXc.desc(),
-            beta, dm_trans[isk].data<double>(), 1, 1, pmat.desc());
+        ModuleBase::ddla_linalg::gemm(transa, transb, naos, naos, nmo2, factor, coefficients, 1, imo2, xc, 1, 1, beta, dm, 1, 1);
+        dm.copy_to_host(output);
     }
     return dm_trans;
 }
@@ -134,23 +131,20 @@ std::vector<container::Tensor> cal_dm_trans_pblas(const ModuleBase::DdlaContext*
         char transb = 'C';
         BlockCyclicDistribution pXc;
         LR_Util::setup_2d_division(pXc, px.nb(), nmo2, naos, px.ictxt());
-        container::Tensor Xc(DAT::DT_COMPLEX_DOUBLE,
-                             DEV::CpuDevice,
-                             {pXc.ncloc(), pXc.nrloc()}); // row is "inside"(memory contiguity) for pblas
-        Xc.zero();
+        const ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> coefficients(ddla, c.get_pointer(), pc.desc());
+        const std::complex<double>* const x_input = X_istate_data + x_start;
+        const ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> x(ddla, x_input, px.desc());
+        ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> xc(ddla, pXc.desc());
+        std::complex<double>* const output = dm_trans[isk].data<std::complex<double>>();
+        ModuleBase::ddla_linalg::ResidentMatrix<std::complex<double>> dm(ddla, output, pmat.desc(), false);
         const std::complex<double> alpha(1.0, 0.0);
         const std::complex<double> beta(0.0, 0.0);
-        ModuleBase::ddla_linalg::gemm(ddla, transa, transb, nmo2, naos, nmo1, alpha,
-            X_istate_data + x_start, i1, i1, px.desc(),
-            c.get_pointer(), i1, imo1, pc.desc(),
-            beta, Xc.data<std::complex<double>>(), i1, i1, pXc.desc());
+        ModuleBase::ddla_linalg::gemm(transa, transb, nmo2, naos, nmo1, alpha, x, i1, i1, coefficients, i1, imo1, beta, xc, i1, i1);
 
         // 2. [X*C_occ^\dagger]^TC_virt^T
         transa = transb = 'T';
-        ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, naos, nmo2,
-            factor, Xc.data<std::complex<double>>(), i1, i1, pXc.desc(),
-            c.get_pointer(), i1, imo2, pc.desc(),
-            beta, dm_trans[isk].data<std::complex<double>>(), i1, i1, pmat.desc());
+        ModuleBase::ddla_linalg::gemm(transa, transb, naos, naos, nmo2, factor, xc, i1, i1, coefficients, i1, imo2, beta, dm, i1, i1);
+        dm.copy_to_host(output);
     }
     return dm_trans;
 }

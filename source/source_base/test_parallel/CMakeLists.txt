@@ -116,6 +116,25 @@ add_test(
           "$<TARGET_FILE:MODULE_BASE_blacs_connector>"
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+# This target also verifies the native path with DDLA entirely unavailable.
+addtest(
+  TARGET MODULE_BASE_ddla_resident
+  LIBS parameter base device ${BLACS_LIB}
+  SOURCES test_ddla_linalg_resident.cpp ../test/mpi_test_main.cpp
+          ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp)
+if(ENABLE_DDLA)
+  target_link_libraries(MODULE_BASE_ddla_resident PRIVATE ddla::ddla)
+endif()
+foreach(rank_count IN ITEMS 2 4 6)
+  add_test(
+    NAME MODULE_BASE_ddla_resident_np${rank_count}
+    COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+            ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_BASE_ddla_resident> ${MPIEXEC_POSTFLAGS})
+  set_tests_properties(MODULE_BASE_ddla_resident_np${rank_count}
+    PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+               PROCESSORS "${rank_count}" TIMEOUT 120)
+endforeach()
+
 if(ENABLE_DDLA)
   addtest(
     TARGET MODULE_BASE_ddla_context

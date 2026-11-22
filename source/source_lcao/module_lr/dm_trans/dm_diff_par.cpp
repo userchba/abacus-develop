@@ -5,6 +5,7 @@
 #include "source_base/tool_title.h"
 #include "source_lcao/module_lr/utils/lr_util.h"
 #include "dm_diff.h"
+#include <type_traits>
 namespace LR
 {
     void CvX(
@@ -270,6 +271,39 @@ namespace LR
         {
             c.fix_k(iks);
             const int start = iks * px.size();
+            if (ddla != nullptr)
+            {
+                using ModuleBase::ddla_linalg::ResidentMatrix;
+                BlockCyclicDistribution cvx_transposed;
+                BlockCyclicDistribution coxt_transposed;
+                LR_Util::setup_2d_division(cvx_transposed, px.nb(), nocc, naos, px.ictxt());
+                LR_Util::setup_2d_division(coxt_transposed, px.nb(), nvirt, naos, px.ictxt());
+                const int virtual_start = nocc + 1;
+                const T one(1.0);
+                const T zero(0.0);
+                const double weight = renorm_k ? 1.0 / static_cast<double>(nk) : 1.0;
+                const T positive(weight);
+                const T negative(-weight);
+                const char adjoint = std::is_same<T, std::complex<double>>::value ? 'C' : 'T';
+                const T* const input = x_data + start;
+                T* const output = dm_diff[iks].data<T>();
+                const ResidentMatrix<T> coefficients(ddla, c.get_pointer(), pc.desc());
+                const ResidentMatrix<T> x(ddla, input, px.desc());
+                ResidentMatrix<T> cvx_t(ddla, cvx_transposed.desc());
+                ResidentMatrix<T> coxt_t(ddla, coxt_transposed.desc());
+                ResidentMatrix<T> result(ddla, output, pmat.desc(), false);
+                // Store transposed intermediates directly. For complex A,
+                // conj(A) * A^T = (A^T)^H * A^T, preserving AAT's convention
+                // without a host conjugation or an intermediate readback.
+                ModuleBase::ddla_linalg::gemm('T', 'T', nocc, naos, nvirt, one,
+                    x, 1, 1, coefficients, 1, virtual_start, zero, cvx_t, 1, 1);
+                ModuleBase::ddla_linalg::gemm('N', 'T', nvirt, naos, nocc, one,
+                    x, 1, 1, coefficients, 1, 1, zero, coxt_t, 1, 1);
+                ModuleBase::ddla_linalg::gemm(adjoint, 'N', naos, naos, nocc, positive, cvx_t, cvx_t, zero, result);
+                ModuleBase::ddla_linalg::gemm(adjoint, 'N', naos, naos, nvirt, negative, coxt_t, coxt_t, one, result);
+                result.copy_to_host(output);
+                continue;
+            }
             // 1. C_virt * X
             CvX(ddla, c.get_pointer(), pc, x_data + start, px, naos, nocc, nvirt, cvx.data<T>(), pcx);
             // 2. C_occ * X^T

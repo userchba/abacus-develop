@@ -99,7 +99,7 @@ void evolve_psi_ddla_device(const int nband,
             // U = denominator^{-1} * numerator
             const std::size_t len_ipiv = static_cast<std::size_t>(pv->para_2d().nrloc())
                                          + static_cast<std::size_t>(pv->para_2d().nb());
-            std::vector<int> ipiv(len_ipiv, 0);
+            ddla::vector<int> ipiv(handle, len_ipiv);
             int info = 0;
             ddla::pgetrf(handle, nlocal, nlocal, d_denominator.data(), 1, 1, desc, ipiv.data(), info);
             if (info != 0)

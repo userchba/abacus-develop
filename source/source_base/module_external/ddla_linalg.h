@@ -1,6 +1,7 @@
 #ifndef ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_LINALG_H
 #define ABACUS_SOURCE_BASE_MODULE_EXTERNAL_DDLA_LINALG_H
 
+#include <memory>
 #include <vector>
 
 class BlockCyclicDistribution;
@@ -29,6 +30,72 @@ struct Scalar
 const DdlaContext* gpu_backend(const DdlaContext* ddla);
 
 #ifdef __MPI
+//! Explicit lifetime of a local block in the selected backend. A CPU/native
+//! matrix borrows host storage; a GPU matrix uploads once. Intermediates have
+//! zero-initialized owned storage. Context and its grid must outlive every matrix.
+//! Host edits require refresh(), and host consumers require copy_to_host().
+//! These operations never implicitly cache matrices by their host address.
+template <typename T>
+class ResidentMatrix
+{
+  public:
+    ResidentMatrix(const DdlaContext* context, const T* input, const int* desc);
+    ResidentMatrix(const DdlaContext* context, T* output, const int* desc, bool copy_in);
+    ResidentMatrix(const DdlaContext* context, const int* desc);
+    ~ResidentMatrix();
+    ResidentMatrix(ResidentMatrix&&) noexcept;
+    ResidentMatrix& operator=(ResidentMatrix&&) noexcept;
+    ResidentMatrix(const ResidentMatrix&) = delete;
+    ResidentMatrix& operator=(const ResidentMatrix&) = delete;
+
+    const DdlaContext* context() const;
+    const int* desc() const;
+    const T* data() const;
+    T* data();
+    void refresh(const T* input);
+    void copy_to_host(T* output) const;
+
+  private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+//! In-place LibDDLA factorization with reusable backend pivots. The matrix
+//! and context must outlive this object. CPU and GPU handles are supported;
+//! the native null-context solve remains available through gesv().
+template <typename T>
+class ResidentLU
+{
+  public:
+    explicit ResidentLU(ResidentMatrix<T>& matrix);
+    ~ResidentLU();
+    ResidentLU(const ResidentLU&) = delete;
+    ResidentLU& operator=(const ResidentLU&) = delete;
+    int info() const;
+    void solve(char side, int nrhs, ResidentMatrix<T>& rhs) const;
+
+  private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+//! Backend-memory operations: no application-level upload or readback. All
+//! operands must belong to the same context (nullptr selects native ScaLAPACK).
+template <typename T>
+void gemm(char transa, char transb, int m, int n, int k,
+          const typename Scalar<T>::type& alpha, const ResidentMatrix<T>& A,
+          const ResidentMatrix<T>& B, const typename Scalar<T>::type& beta,
+          ResidentMatrix<T>& C);
+template <typename T>
+void gemm(char transa, char transb, int m, int n, int k,
+          const typename Scalar<T>::type& alpha, const ResidentMatrix<T>& A, int ia, int ja,
+          const ResidentMatrix<T>& B, int ib, int jb, const typename Scalar<T>::type& beta,
+          ResidentMatrix<T>& C, int ic, int jc);
+template <typename T>
+void geadd(char trans, int m, int n, const typename Scalar<T>::type& alpha,
+           const ResidentMatrix<T>& A, const typename Scalar<T>::type& beta, ResidentMatrix<T>& C);
+template <typename T>
+int gesv(int n, int nrhs, ResidentMatrix<T>& A, ResidentMatrix<T>& B);
 //! C = alpha * op(A) * op(B) + beta * C (PxGEMM convention).
 //! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK.
 template <typename T>

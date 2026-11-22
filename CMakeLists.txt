@@ -341,7 +341,8 @@ if(ENABLE_PEXSI)
 endif()
 if(ENABLE_DDLA)
   # The LibDDLA public headers need only C++11; ddla::ddla carries that requirement.
-  find_package(LibDDLA REQUIRED CONFIG)
+  # 0.0.7: LU pivot arrays are in the memory of the handle's backend.
+  find_package(LibDDLA 0.0.7 REQUIRED CONFIG)
   message(STATUS "Found LibDDLA ${LibDDLA_VERSION}: ${LibDDLA_DIR}")
 endif()
 

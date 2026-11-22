@@ -164,6 +164,10 @@ After compiling PEXSI, pass `-DENABLE_PEXSI=ON` to CMake. ABACUS uses the CMake 
 
 ## Build with LibDDLA support
 
+LibDDLA is optional. `ENABLE_DDLA=OFF` is the default: native CPU, CUDA and
+HIP builds do not require its headers, package or libraries. Enabling GPU or
+LCAO support alone does not enable LibDDLA.
+
 LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic matrices, with a CPU backend and an optional GPU (CUDA) backend. ABACUS uses it in LCAO calculations for
 
 - `ks_solver ddla`: the generalized eigenproblem $H(k)C = S(k)C\,\mathrm{diag}(\epsilon)$ is solved with the LibDDLA `phegvd` routine on the process grid of the Hamiltonian; $H$, $S$ and the wave functions stay distributed and are never gathered onto one process;
@@ -172,13 +176,25 @@ LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic
 
 All of them run on the CPU, or on the GPUs with `device gpu`.
 
-Build LibDDLA with the same MPI library as ABACUS, and with GPU support if you want to use `device gpu`. `ks_solver ddla` needs a LibDDLA version that provides `phegvd`. ABACUS finds LibDDLA through the CMake package that LibDDLA installs:
+Build LibDDLA 0.0.7 or newer with the same MPI library as ABACUS, and with GPU support if you want to use `device gpu`. `ks_solver ddla` needs a LibDDLA version that provides `phegvd`. ABACUS finds LibDDLA through the CMake package that LibDDLA installs:
 
 ```bash
 cmake -B build -DENABLE_DDLA=ON -DLibDDLA_DIR=/path/to/libddla/lib64/cmake/LibDDLA
 ```
 
 Instead of `LibDDLA_DIR`, you can add the LibDDLA installation prefix to `CMAKE_PREFIX_PATH`. `ENABLE_DDLA` requires `ENABLE_LCAO` and `ENABLE_MPI`, and is supported by the CMake build only.
+
+On the GPU, AO-MO, CVCX, transition- and difference-density transforms, CN2/Taylor/ETRS
+propagators and the TD energy-density matrix keep their intermediate dense
+matrices in device memory across dependent operations. Results are copied
+back when a host consumer needs them. Hamiltonians, overlap matrices and
+wavefunctions updated on the host must be refreshed at those boundaries;
+this does not make an entire SCF or molecular-dynamics calculation device-only.
+Other host-pointer linear-algebra calls retain their per-call transfer
+behavior.
+
+The native Tensor GPU propagator currently supports CN2 only. Select
+`td_la_backend ddla` explicitly to use Taylor or ETRS propagation on the GPU.
 
 When LibDDLA runs on the GPUs and communicates through NCCL, every MPI process needs a GPU of its own, also with MPS: run at most as many MPI processes on a node as it has visible GPUs. Otherwise ABACUS stops with a message. With `kpar` larger than 1, each k-point pool runs LibDDLA on its own process grid; on the GPUs this needs a LibDDLA that keeps every process on its own GPU for the handle of a pool, and ABACUS stops with a message when LibDDLA moves a process to another GPU.
 

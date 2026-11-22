@@ -53,70 +53,72 @@ namespace LR
             const double zero = 0.0;
 
             // c^TV[nocc*naos]
-            container::Tensor cv(DAT::DT_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, trans,
+            using ModuleBase::ddla_linalg::ResidentMatrix;
+            const ResidentMatrix<double> coefficients(ddla, c.get_pointer(), pc.desc());
+            const ResidentMatrix<double> potential(ddla, V_istate[isk].data<double>(), pmat.desc());
+            const double* const x_input = X_istate_data + start;
+            const ResidentMatrix<double> x(ddla, x_input, px.desc());
+            ResidentMatrix<double> cv(ddla, pcv.desc());
+            ResidentMatrix<double> cx(ddla, pcx.desc());
+            double* const output = AX_istate_data + start;
+            ResidentMatrix<double> ax(ddla, output, px.desc(), add_on);
+            ModuleBase::ddla_linalg::gemm(
+                trans,
                 notrans,
                 nocc,
                 naos,
                 naos,
                 one,
-                c.get_pointer(),
+                coefficients,
                 i1,
                 i1,
-                pc.desc(),
-                V_istate[isk].data<double>(),
+                potential,
                 i1,
                 i1,
-                pmat.desc(),
                 zero,
-                cv.data<double>(),
+                cv,
                 i1,
-                i1,
-                pcv.desc());
+                i1);
 
             // cX^T[naos*nvirt]
-            container::Tensor cx(DAT::DT_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, notrans,
+            ModuleBase::ddla_linalg::gemm(
+                notrans,
                 trans,
                 naos,
                 nvirt,
                 nocc,
                 one,
-                c.get_pointer(),
+                coefficients,
                 i1,
                 i1,
-                pc.desc(),
-                X_istate_data + start,
+                x,
                 i1,
                 i1,
-                px.desc(),
                 zero,
-                cx.data<double>(),
+                cx,
                 i1,
-                i1,
-                pcx.desc());
+                i1);
 
             //AX_istate=[cX^T]^T[c^TV]^T (nvirt major)
             const auto accumulation_beta_10 = add_on ? one : zero;
-            ModuleBase::ddla_linalg::gemm(ddla, trans,
+            ModuleBase::ddla_linalg::gemm(
+                trans,
                 trans,
                 nvirt,
                 nocc,
                 naos,
                 factor,
-                cx.data<double>(),
+                cx,
                 i1,
                 i1,
-                pcx.desc(),
-                cv.data<double>(),
+                cv,
                 i1,
                 i1,
-                pcv.desc(),
                 accumulation_beta_10,
-                AX_istate_data + start,
+                ax,
                 i1,
-                i1,
-                px.desc());
+                i1);
+            ax.copy_to_host(output);
         }
     }
 
@@ -168,70 +170,72 @@ namespace LR
             const std::complex<double> zero(0.0, 0.0);
 
             // c^TV[nocc*naos]
-            container::Tensor cv(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, dagger,
+            using ModuleBase::ddla_linalg::ResidentMatrix;
+            const ResidentMatrix<std::complex<double>> coefficients(ddla, c.get_pointer(), pc.desc());
+            const ResidentMatrix<std::complex<double>> potential(ddla, V_istate[isk].data<std::complex<double>>(), pmat.desc());
+            const std::complex<double>* const x_input = X_istate_data + start;
+            const ResidentMatrix<std::complex<double>> x(ddla, x_input, px.desc());
+            ResidentMatrix<std::complex<double>> cv(ddla, pcv.desc());
+            ResidentMatrix<std::complex<double>> cx(ddla, pcx.desc());
+            std::complex<double>* const output = AX_istate_data + start;
+            ResidentMatrix<std::complex<double>> ax(ddla, output, px.desc(), add_on);
+            ModuleBase::ddla_linalg::gemm(
+                dagger,
                 notrans,
                 nocc,
                 naos,
                 naos,
                 one,
-                c.get_pointer(),
+                coefficients,
                 i1,
                 i1,
-                pc.desc(),
-                V_istate[isk].data<std::complex<double>>(),
+                potential,
                 i1,
                 i1,
-                pmat.desc(),
                 zero,
-                cv.data<std::complex<double>>(),
+                cv,
                 i1,
-                i1,
-                pcv.desc());
+                i1);
 
             // cX^T[naos*nvirt]
-            container::Tensor cx(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, notrans,
+            ModuleBase::ddla_linalg::gemm(
+                notrans,
                 dagger,
                 naos,
                 nvirt,
                 nocc,
                 one,
-                c.get_pointer(),
+                coefficients,
                 i1,
                 i1,
-                pc.desc(),
-                X_istate_data + start,
+                x,
                 i1,
                 i1,
-                px.desc(),
                 zero,
-                cx.data<std::complex<double>>(),
+                cx,
                 i1,
-                i1,
-                pcx.desc());
+                i1);
 
             //AX_istate=[cX^T]^T[c^TV]^T (nvirt major)
             const auto accumulation_beta_7 = add_on ? one : zero;
-            ModuleBase::ddla_linalg::gemm(ddla, trans,
+            ModuleBase::ddla_linalg::gemm(
+                trans,
                 trans,
                 nvirt,
                 nocc,
                 naos,
                 factor,
-                cx.data<std::complex<double>>(),
+                cx,
                 i1,
                 i1,
-                pcx.desc(),
-                cv.data<std::complex<double>>(),
+                cv,
                 i1,
                 i1,
-                pcv.desc(),
                 accumulation_beta_7,
-                AX_istate_data + start,
+                ax,
                 i1,
-                i1,
-                px.desc());
+                i1);
+            ax.copy_to_host(output);
         }
     }
 
@@ -283,70 +287,72 @@ namespace LR
             const double zero = 0.0;
 
             // VC[naos*nvirt]
-            container::Tensor cv(DAT::DT_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, notrans,
+            using ModuleBase::ddla_linalg::ResidentMatrix;
+            const ResidentMatrix<double> coefficients(ddla, c.get_pointer(), pc.desc());
+            const ResidentMatrix<double> potential(ddla, V_istate[isk].data<double>(), pmat.desc());
+            const double* const x_input = X_istate_data + start;
+            const ResidentMatrix<double> x(ddla, x_input, px.desc());
+            ResidentMatrix<double> cv(ddla, pcv.desc());
+            ResidentMatrix<double> cx(ddla, pcx.desc());
+            double* const output = AX_istate_data + start;
+            ResidentMatrix<double> ax(ddla, output, px.desc(), add_on);
+            ModuleBase::ddla_linalg::gemm(
+                notrans,
                 notrans,
                 naos,
                 nvirt,
                 naos,
                 one,
-                V_istate[isk].data<double>(),
+                potential,
                 i1,
                 i1,
-                pmat.desc(),
-                c.get_pointer(),
+                coefficients,
                 i1,
                 ivirt,
-                pc.desc(),
                 zero,
-                cv.data<double>(),
+                cv,
                 i1,
-                i1,
-                pcv.desc());
+                i1);
 
             // X^TC^T[nocc*naos]
-            container::Tensor cx(DAT::DT_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, dagger,
+            ModuleBase::ddla_linalg::gemm(
+                dagger,
                 dagger,
                 nocc,
                 naos,
                 nvirt,
                 one,
-                X_istate_data + start,
+                x,
                 i1,
                 i1,
-                px.desc(),
-                c.get_pointer(),
+                coefficients,
                 i1,
                 ivirt,
-                pc.desc(),
                 zero,
-                cx.data<double>(),
+                cx,
                 i1,
-                i1,
-                pcx.desc());
+                i1);
 
             //AX_istate=[VC]^T[X^TC^T]^T (nvirt major)
             const auto accumulation_beta_4 = add_on ? one : zero;
-            ModuleBase::ddla_linalg::gemm(ddla, trans,
+            ModuleBase::ddla_linalg::gemm(
+                trans,
                 trans,
                 nvirt,
                 nocc,
                 naos,
                 factor,
-                cv.data<double>(),
+                cv,
                 i1,
                 i1,
-                pcv.desc(),
-                cx.data<double>(),
+                cx,
                 i1,
                 i1,
-                pcx.desc(),
                 accumulation_beta_4,
-                AX_istate_data + start,
+                ax,
                 i1,
-                i1,
-                px.desc());
+                i1);
+            ax.copy_to_host(output);
         }
     }
 
@@ -398,70 +404,72 @@ namespace LR
             const std::complex<double> zero(0.0, 0.0);
 
             // VC[naos*nvirt]
-            container::Tensor cv(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, notrans,
+            using ModuleBase::ddla_linalg::ResidentMatrix;
+            const ResidentMatrix<std::complex<double>> coefficients(ddla, c.get_pointer(), pc.desc());
+            const ResidentMatrix<std::complex<double>> potential(ddla, V_istate[isk].data<std::complex<double>>(), pmat.desc());
+            const std::complex<double>* const x_input = X_istate_data + start;
+            const ResidentMatrix<std::complex<double>> x(ddla, x_input, px.desc());
+            ResidentMatrix<std::complex<double>> cv(ddla, pcv.desc());
+            ResidentMatrix<std::complex<double>> cx(ddla, pcx.desc());
+            std::complex<double>* const output = AX_istate_data + start;
+            ResidentMatrix<std::complex<double>> ax(ddla, output, px.desc(), add_on);
+            ModuleBase::ddla_linalg::gemm(
+                notrans,
                 notrans,
                 naos,
                 nvirt,
                 naos,
                 one,
-                V_istate[isk].data<std::complex<double>>(),
+                potential,
                 i1,
                 i1,
-                pmat.desc(),
-                c.get_pointer(),
+                coefficients,
                 i1,
                 ivirt,
-                pc.desc(),
                 zero,
-                cv.data<std::complex<double>>(),
+                cv,
                 i1,
-                i1,
-                pcv.desc());
+                i1);
 
             // X^TC^T[nocc*naos]
-            container::Tensor cx(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ModuleBase::ddla_linalg::gemm(ddla, dagger,
+            ModuleBase::ddla_linalg::gemm(
+                dagger,
                 dagger,
                 nocc,
                 naos,
                 nvirt,
                 one,
-                X_istate_data + start,
+                x,
                 i1,
                 i1,
-                px.desc(),
-                c.get_pointer(),
+                coefficients,
                 i1,
                 ivirt,
-                pc.desc(),
                 zero,
-                cx.data<std::complex<double>>(),
+                cx,
                 i1,
-                i1,
-                pcx.desc());
+                i1);
 
             //AX_istate=[VC]^T[X^TC^T]^T (nvirt major)
             const auto accumulation_beta_1 = add_on ? one : zero;
-            ModuleBase::ddla_linalg::gemm(ddla, trans,
+            ModuleBase::ddla_linalg::gemm(
+                trans,
                 trans,
                 nvirt,
                 nocc,
                 naos,
                 factor,
-                cv.data<std::complex<double>>(),
+                cv,
                 i1,
                 i1,
-                pcv.desc(),
-                cx.data<std::complex<double>>(),
+                cx,
                 i1,
                 i1,
-                pcx.desc(),
                 accumulation_beta_1,
-                AX_istate_data + start,
+                ax,
                 i1,
-                i1,
-                px.desc());
+                i1);
+            ax.copy_to_host(output);
         }
     }
 }

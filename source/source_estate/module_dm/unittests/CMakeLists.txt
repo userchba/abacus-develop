@@ -92,6 +92,34 @@ endif()
 
 if(ENABLE_DDLA)
   addtest(
+    TARGET MODULE_ESTATE_edm_tddft_ddla
+    LIBS parameter base device psi symmetry ddla::ddla
+    SOURCES test_edm_tddft.cpp
+            ${ABACUS_SOURCE_DIR}/source_base/test/mpi_test_main.cpp
+            ../edm_tddft.cpp
+            ../density_matrix.cpp
+            ../dmr_gamma.cpp
+            ../dmr_init.cpp
+            ../dm_setter.cpp
+            ../dm_getter.cpp
+            tmp_mocks.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/base_matrix.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/hcontainer.cpp
+            ${ABACUS_SOURCE_DIR}/source_hamilt/module_hcontainer/atom_pair.cpp
+            ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp
+            ${ABACUS_SOURCE_DIR}/source_cell/klist.cpp
+            ${ABACUS_SOURCE_DIR}/source_cell/klist_io.cpp
+            ${ABACUS_SOURCE_DIR}/source_cell/parallel_kpoints.cpp
+            ${ABACUS_SOURCE_DIR}/source_cell/reciprocal_grid.cpp)
+  foreach(rank_count IN ITEMS 2 4 6)
+    add_test(NAME MODULE_ESTATE_edm_tddft_ddla_np${rank_count}
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+              ${MPIEXEC_PREFLAGS} $<TARGET_FILE:MODULE_ESTATE_edm_tddft_ddla> ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(MODULE_ESTATE_edm_tddft_ddla_np${rank_count}
+      PROPERTIES ENVIRONMENT "OMP_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1"
+                 PROCESSORS "${rank_count}" TIMEOUT 120)
+  endforeach()
+  addtest(
     TARGET MODULE_ESTATE_dm_from_psi_ddla
     LIBS parameter base device psi ddla::ddla
     SOURCES test_dm_from_psi_ddla.cpp

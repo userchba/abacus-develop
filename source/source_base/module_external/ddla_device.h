@@ -129,7 +129,14 @@ class BackendBlock
     // copy_in false: the block is only written, so a GPU handle allocates
     // it on the GPU without copying the host content there.
     BackendBlock(const DdlaContext& ddla, T* host, const int* desc, const bool copy_in)
-        : handle_(ddla.handle()), on_gpu_(ddla.on_gpu()), host_(host), desc_(desc), device_(ddla.handle())
+        : BackendBlock(ddla, host, desc, copy_in, true)
+    {
+    }
+
+    // A resident pointer is already in the handle's memory. Borrow it without
+    // allocating, copying or synchronizing at this individual operation.
+    BackendBlock(const DdlaContext& ddla, T* host, const int* desc, const bool copy_in, const bool stage_host)
+        : handle_(ddla.handle()), on_gpu_(ddla.on_gpu() && stage_host), host_(host), desc_(desc), device_(ddla.handle())
     {
         if (on_gpu_)
         {
