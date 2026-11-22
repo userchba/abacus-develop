@@ -3,6 +3,7 @@
 #include "source_base/libm/libm.h"
 #include "source_base/module_external/lapack_connector.h"
 #include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/parallel_reduce.h"
 #include "source_base/timer.h"
 #include "source_base/tool_threading.h"
@@ -270,6 +271,12 @@ void ModuleIO::cal_velocity_basis_k(const UnitCell& ucell,
     const std::complex<double> one_real = ModuleBase::ONE;
     const std::complex<double> neg_one_real = ModuleBase::NEG_ONE;
     const std::complex<double> zero_complex = ModuleBase::ZERO;
+    const char right = 'R';
+    // td_la_backend ddla on the GPU: LibDDLA handle bound to the grid of pv; ScaLAPACK
+    // otherwise (LibDDLA on the CPU was measured slower here, on the GPU faster).
+    const ModuleBase::DdlaContext* td_ddla = td_p->ddla();
+    const ModuleBase::DdlaContext* ddla = ModuleBase::ddla_linalg::gpu_backend(td_ddla);
+    std::vector<int> ddla_ipiv;
 
     std::complex<double>* hk = new std::complex<double>[pv->para_2d().size()];
     std::complex<double>* sk = new std::complex<double>[pv->para_2d().size()];
@@ -306,35 +313,43 @@ void ModuleIO::cal_velocity_basis_k(const UnitCell& ucell,
         {
             hamilt::folding_HR(sR, sk, kv.kvec_d[ik], nrow, 1);
         }
-        // 2. set inverse S(k) -> sk will be changed to sk_inv
-        int* ipiv = new int[pv->para_2d().size()];
-        int info = 0;
-        // 2.1 compute ipiv
-        ScalapackConnector::getrf(nlocal, nlocal, sk, 1, 1, pv->para_2d().desc(), ipiv, &info);
-        int lwork = -1;
-        int liwotk = -1;
-        std::vector<std::complex<double>> work(1, 0);
-        std::vector<int> iwork(1, 0);
-        // 2.2 compute work
-        ScalapackConnector::getri(nlocal, sk, 1, 1, pv->para_2d().desc(), ipiv, work.data(), &lwork, iwork.data(), &liwotk, &info);
-        lwork = work[0].real();
-        work.resize(lwork, 0);
-        liwotk = iwork[0];
-        iwork.resize(liwotk, 0);
-        // 2.3 compute inverse matrix of Sk
-        ScalapackConnector::getri(nlocal,
-                                  sk, // return sk^-1
-                                  1,
-                                  1,
-                                  pv->para_2d().desc(),
-                                  ipiv,
-                                  work.data(),
-                                  &lwork,
-                                  iwork.data(),
-                                  &liwotk,
-                                  &info);
-        delete[] ipiv;
-        assert(0 == info);
+        // 2. LibDDLA: LU-factor S(k) in place and solve with the factors below;
+        //    ScaLAPACK: set inverse S(k) -> sk will be changed to sk_inv
+        if (ddla != nullptr)
+        {
+            ModuleBase::ddla_linalg::getrf(*ddla, pv->para_2d(), sk, ddla_ipiv);
+        }
+        else
+        {
+            int* ipiv = new int[pv->para_2d().size()];
+            int info = 0;
+            // 2.1 compute ipiv
+            ScalapackConnector::getrf(nlocal, nlocal, sk, 1, 1, pv->para_2d().desc(), ipiv, &info);
+            int lwork = -1;
+            int liwotk = -1;
+            std::vector<std::complex<double>> work(1, 0);
+            std::vector<int> iwork(1, 0);
+            // 2.2 compute work
+            ScalapackConnector::getri(nlocal, sk, 1, 1, pv->para_2d().desc(), ipiv, work.data(), &lwork, iwork.data(), &liwotk, &info);
+            lwork = work[0].real();
+            work.resize(lwork, 0);
+            liwotk = iwork[0];
+            iwork.resize(liwotk, 0);
+            // 2.3 compute inverse matrix of Sk
+            ScalapackConnector::getri(nlocal,
+                                      sk, // return sk^-1
+                                      1,
+                                      1,
+                                      pv->para_2d().desc(),
+                                      ipiv,
+                                      work.data(),
+                                      &lwork,
+                                      iwork.data(),
+                                      &liwotk,
+                                      &info);
+            delete[] ipiv;
+            assert(0 == info);
+        }
         for (size_t i_alpha = 0; i_alpha != 3; ++i_alpha)
         {
             // 3. set partial_H(k), partial_S(k) and r(k)
@@ -389,115 +404,118 @@ void ModuleIO::cal_velocity_basis_k(const UnitCell& ucell,
             // Hk) - Hk * Sk_inv * partial_Sk
             // 4.1.1 Hk * Sk_inv (note 2.)
             ModuleBase::GlobalFunc::ZEROS(h_is, pv->para_2d().size());
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     one_real,
-                                     hk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     sk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     zero_complex,
-                                     h_is,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc());
+            if (ddla != nullptr)
+            {
+                // solve X S(k) = H(k) with the LU factors of S(k)
+                BlasConnector::copy(pv->para_2d().size(), hk, 1, h_is, 1);
+                ModuleBase::ddla_linalg::getrs(*ddla, pv->para_2d(), right, nlocal, sk, ddla_ipiv, h_is, pv->para_2d().desc());
+            }
+            else
+            {
+                ScalapackConnector::gemm(N_char,
+                                         N_char,
+                                         nlocal,
+                                         nlocal,
+                                         nlocal,
+                                         one_real,
+                                         hk,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc(),
+                                         sk,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc(),
+                                         zero_complex,
+                                         h_is,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc());
+            }
             // 4.1.2 (Hk * Sk_inv) * rk
             ModuleBase::GlobalFunc::ZEROS(h_is_r, pv->para_2d().size());
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     one_real,
-                                     h_is,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     rk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     zero_complex,
-                                     h_is_r,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc());
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nlocal,
+                                          nlocal,
+                                          one_real,
+                                          h_is,
+                                          pv->para_2d().desc(),
+                                          rk,
+                                          pv->para_2d().desc(),
+                                          zero_complex,
+                                          h_is_r,
+                                          pv->para_2d().desc());
             // 4.2.1 rk * Sk_inv (note 2.)
             ModuleBase::GlobalFunc::ZEROS(r_is, pv->para_2d().size());
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     one_real,
-                                     rk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     sk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     zero_complex,
-                                     r_is,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc());
+            if (ddla != nullptr)
+            {
+                // solve X S(k) = r(k) with the LU factors of S(k)
+                BlasConnector::copy(pv->para_2d().size(), rk, 1, r_is, 1);
+                ModuleBase::ddla_linalg::getrs(*ddla, pv->para_2d(), right, nlocal, sk, ddla_ipiv, r_is, pv->para_2d().desc());
+            }
+            else
+            {
+                ScalapackConnector::gemm(N_char,
+                                         N_char,
+                                         nlocal,
+                                         nlocal,
+                                         nlocal,
+                                         one_real,
+                                         rk,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc(),
+                                         sk,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc(),
+                                         zero_complex,
+                                         r_is,
+                                         1,
+                                         1,
+                                         pv->para_2d().desc());
+            }
             // 4.2.2 (rk * Sk_inv) * Hk
             ModuleBase::GlobalFunc::ZEROS(r_is_h, pv->para_2d().size());
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     one_real,
-                                     r_is,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     hk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     zero_complex,
-                                     r_is_h,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc());
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nlocal,
+                                          nlocal,
+                                          one_real,
+                                          r_is,
+                                          pv->para_2d().desc(),
+                                          hk,
+                                          pv->para_2d().desc(),
+                                          zero_complex,
+                                          r_is_h,
+                                          pv->para_2d().desc());
             // 4.3.1 (Hk * Sk_inv) * partial_Sk
             ModuleBase::GlobalFunc::ZEROS(h_is_ps, pv->para_2d().size());
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nlocal,
-                                     nlocal,
-                                     one_real,
-                                     h_is,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     partial_sk,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     zero_complex,
-                                     h_is_ps,
-                                     1,
-                                     1,
-                                     pv->para_2d().desc());
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nlocal,
+                                          nlocal,
+                                          one_real,
+                                          h_is,
+                                          pv->para_2d().desc(),
+                                          partial_sk,
+                                          pv->para_2d().desc(),
+                                          zero_complex,
+                                          h_is_ps,
+                                          pv->para_2d().desc());
             // 4.4 h_is_r will be changed to partial_Hk + IMAG_UNIT * (Hk * Sk_inv * rk)
-            ScalapackConnector::geadd('N', nlocal, nlocal, one_real, partial_hk, 1, 1, pv->para_2d().desc(), one_imag, h_is_r, 1, 1, pv->para_2d().desc());
+            ModuleBase::ddla_linalg::geadd(ddla, N_char, nlocal, nlocal, one_real, partial_hk, pv->para_2d().desc(), one_imag, h_is_r, pv->para_2d().desc());
             // 4.5 r_is_h will be changed to h_is_r - IMAG_UNIT * (rk * Sk_inv * Hk)
-            ScalapackConnector::geadd('N', nlocal, nlocal, one_real, h_is_r, 1, 1, pv->para_2d().desc(), neg_one_imag, r_is_h, 1, 1, pv->para_2d().desc());
+            ModuleBase::ddla_linalg::geadd(ddla, N_char, nlocal, nlocal, one_real, h_is_r, pv->para_2d().desc(), neg_one_imag, r_is_h, pv->para_2d().desc());
             // 4.6 h_is_ps will be changed to r_is_h - Hk * Sk_inv * partial_Sk
-            ScalapackConnector::geadd('N', nlocal, nlocal, one_real, r_is_h, 1, 1, pv->para_2d().desc(), neg_one_real, h_is_ps, 1, 1, pv->para_2d().desc());
+            ModuleBase::ddla_linalg::geadd(ddla, N_char, nlocal, nlocal, one_real, r_is_h, pv->para_2d().desc(), neg_one_real, h_is_ps, pv->para_2d().desc());
             // 5. copy h_is_ps to velocity_basis_k[ik][i_alpha]
             BlasConnector::copy(pv->para_2d().size(), h_is_ps, 1, velocity_basis_k[ik][i_alpha], 1);
         }
@@ -521,7 +539,8 @@ void ModuleIO::cal_velocity_matrix(const psi::Psi<std::complex<double>>* psi,
                                    const Parallel_Orbitals* pv,
                                    const K_Vectors& kv,
                                    const std::vector<ModuleBase::Vector3<std::complex<double>*>>& velocity_basis_k,
-                                   std::vector<std::array<ModuleBase::ComplexMatrix, 3>>& velocity_k)
+                                   std::vector<std::array<ModuleBase::ComplexMatrix, 3>>& velocity_k,
+                                   const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("ModuleIO", "cal_velocity_matrix");
     ModuleBase::timer::start("ModuleIO", "cal_velocity_matrix");
@@ -545,45 +564,35 @@ void ModuleIO::cal_velocity_matrix(const psi::Psi<std::complex<double>>* psi,
             ModuleBase::GlobalFunc::ZEROS(vk_c, pv->ncol_bands * pv->nrow_bands);
             ModuleBase::GlobalFunc::ZEROS(v_c, pv->nloc_wfc);
             // v_c_{\mu,m} = v_{\mu,\nu} * C_{\nu,m}
-            ScalapackConnector::gemm(N_char,
-                                     N_char,
-                                     nlocal,
-                                     nbands,
-                                     nlocal,
-                                     one_real,
-                                     velocity_basis_k[ik][i_alpha],
-                                     1,
-                                     1,
-                                     pv->para_2d().desc(),
-                                     psi[0].get_pointer(),
-                                     1,
-                                     1,
-                                     pv->desc_wfc,
-                                     zero_complex,
-                                     v_c,
-                                     1,
-                                     1,
-                                     pv->desc_wfc);
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          N_char,
+                                          N_char,
+                                          nlocal,
+                                          nbands,
+                                          nlocal,
+                                          one_real,
+                                          velocity_basis_k[ik][i_alpha],
+                                          pv->para_2d().desc(),
+                                          psi[0].get_pointer(),
+                                          pv->desc_wfc,
+                                          zero_complex,
+                                          v_c,
+                                          pv->desc_wfc);
             // velocity_k_{n,m} = C^\dagger_{n,\mu} * v_c_{\mu,m}
-            ScalapackConnector::gemm(C_char,
-                                     N_char,
-                                     nbands,
-                                     nbands,
-                                     nlocal,
-                                     one_real,
-                                     psi[0].get_pointer(),
-                                     1,
-                                     1,
-                                     pv->desc_wfc,
-                                     v_c,
-                                     1,
-                                     1,
-                                     pv->desc_wfc,
-                                     zero_complex,
-                                     vk_c,
-                                     1,
-                                     1,
-                                     pv->desc_Eij);
+            ModuleBase::ddla_linalg::gemm(ddla,
+                                          C_char,
+                                          N_char,
+                                          nbands,
+                                          nbands,
+                                          nlocal,
+                                          one_real,
+                                          psi[0].get_pointer(),
+                                          pv->desc_wfc,
+                                          v_c,
+                                          pv->desc_wfc,
+                                          zero_complex,
+                                          vk_c,
+                                          pv->desc_Eij);
 
             for (int ir = 0; ir < PARAM.inp.nbands; ++ir)
             {
@@ -645,8 +654,10 @@ void ModuleIO::cal_current_comm_k(const UnitCell& ucell,
     set_rR_from_hR(ucell, GridD, orb, pv, td_p->r_calculator, &hR, rR);
     // set velocity_basis_k
     cal_velocity_basis_k(ucell, td_p, orb, pv, kv, rR, sR, hR, velocity_basis_k);
-    // set velocity_k
-    cal_velocity_matrix(psi, pv, kv, velocity_basis_k, velocity_k);
+    // set velocity_k, on the GPU LibDDLA handle of td_la_backend ddla if any (see cal_velocity_basis_k)
+    const ModuleBase::DdlaContext* td_ddla = td_p->ddla();
+    const ModuleBase::DdlaContext* ddla = ModuleBase::ddla_linalg::gpu_backend(td_ddla);
+    cal_velocity_matrix(psi, pv, kv, velocity_basis_k, velocity_k, ddla);
 
     // sum n and m for current_k
     for (size_t ik = 0; ik != kv.get_nks(); ++ik)

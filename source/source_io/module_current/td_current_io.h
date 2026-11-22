@@ -102,7 +102,8 @@ void cal_velocity_matrix(const psi::Psi<std::complex<double>>* psi,
                          const Parallel_Orbitals* pv,
                          const K_Vectors& kv,
                          const std::vector<ModuleBase::Vector3<std::complex<double>*>>& velocity_basis_k,
-                         std::vector<std::array<ModuleBase::ComplexMatrix, 3>>& velocity_k);
+                         std::vector<std::array<ModuleBase::ComplexMatrix, 3>>& velocity_k,
+                         const ModuleBase::DdlaContext* ddla);
 template <typename TR>
 void cal_current_comm_k(const UnitCell& ucell,
                         const Grid_Driver& GridD,

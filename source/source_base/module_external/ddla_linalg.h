@@ -23,6 +23,11 @@ struct Scalar
     using type = T;
 };
 
+//! ddla when it runs on a GPU, nullptr (ScaLAPACK) for a CPU handle or none.
+//! For call sites where only the GPU backend was measured to be faster than
+//! ScaLAPACK.
+const DdlaContext* gpu_backend(const DdlaContext* ddla);
+
 #ifdef __MPI
 //! C = alpha * op(A) * op(B) + beta * C (PxGEMM convention).
 //! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK.

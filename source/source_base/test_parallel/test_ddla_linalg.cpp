@@ -30,6 +30,8 @@
  *       Eij layout, psi*Cij, and the H/S half-step average, on uneven
  *       blocks, nband < nlocal and swapped grids, on the CPU and (when
  *       available) the GPU backend.
+ *   - gpu_backend
+ *     - keeps a GPU handle, maps a CPU handle and a null context to nullptr.
  *   - getrf + getrs
  *     - side 'L' matches ScaLAPACK pzgesv for S X = B with B in the psi
  *       (nlocal x nband) layout;
@@ -305,6 +307,15 @@ TEST_P(DdlaLinalgTest, RealGemmAndGeaddMatchScalapack)
     ModuleBase::ddla_linalg::geadd(&ddla, 'T', nlocal, nlocal, two, h.data(), dist.desc(), half, c_ddla.data(),
                                    dist.desc());
     EXPECT_LT(max_abs_diff_all_ranks(c_ddla, c_ref), tol);
+}
+
+TEST_P(DdlaLinalgTest, GpuBackend)
+{
+    const bool use_gpu = std::get<1>(GetParam());
+    const ModuleBase::DdlaContext* expected = use_gpu ? &ddla : nullptr;
+    EXPECT_EQ(ModuleBase::ddla_linalg::gpu_backend(&ddla), expected);
+    const ModuleBase::DdlaContext* none = nullptr;
+    EXPECT_EQ(ModuleBase::ddla_linalg::gpu_backend(none), none);
 }
 
 namespace

@@ -24,6 +24,19 @@ namespace ModuleBase
 {
 namespace ddla_linalg
 {
+const DdlaContext* gpu_backend(const DdlaContext* ddla)
+{
+#ifdef __DDLA
+    if (ddla != nullptr && ddla->on_gpu())
+    {
+        return ddla;
+    }
+#else
+    (void)ddla;
+#endif
+    return nullptr;
+}
+
 #ifdef __MPI
 namespace
 {
