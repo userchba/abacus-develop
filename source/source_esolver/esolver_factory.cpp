@@ -319,7 +319,7 @@ ESolver* init_esolver(const Input_para& inp)
         const bool use_complex_hr = inp.nspin >= 4 || exx_info.cal_exx;
         if (!use_complex_hr)
         {
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
             if (inp.device == "gpu")
             {
                 return new ESolver_KS_LCAO_TDDFT<double, base_device::DEVICE_GPU>();
@@ -329,7 +329,7 @@ ESolver* init_esolver(const Input_para& inp)
         }
         else
         {
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
             if (inp.device == "gpu")
             {
                 return new ESolver_KS_LCAO_TDDFT<std::complex<double>, base_device::DEVICE_GPU>();

@@ -389,11 +389,13 @@ if(USE_CUDA)
 endif()
 
 if(USE_ROCM)
+  # hip::device carries clang-only usage requirements (-xhip, --offload-arch,
+  # --hip-link) that break the GNU host compiler. The HIP kernels are built by
+  # hip_add_library (hipcc), so host targets need only hip::host.
   list(
     APPEND
     _abacus_feature_libs
     hip::host
-    hip::device
     hip::hipfft
     roc::hipblas
     roc::hipsolver)
@@ -436,7 +438,6 @@ foreach(
         cusolverMp::cusolverMp
         cublasMp::cublasMp
         hip::host
-        hip::device
         hip::hipfft
         roc::hipblas
         roc::hipsolver)
@@ -739,6 +740,10 @@ if(USE_ROCM)
     source_pw/module_pwdft/kernels/rocm/stress_op.hip.cu
     source_cell/kernels/rocm/wf_op.hip.cu
     source_pw/module_pwdft/kernels/rocm/vnl_op.hip.cu
+    source_pw/module_pwdft/kernels/rocm/cal_density_real_op.hip.cu
+    source_pw/module_pwdft/kernels/rocm/mul_potential_op.hip.cu
+    source_pw/module_pwdft/kernels/rocm/vec_mul_vec_complex.hip.cu
+    source_pw/module_pwdft/kernels/rocm/exx_cal_energy_op.hip.cu
     source_base/kernels/rocm/math_kernel_op.hip.cu
     source_base/kernels/rocm/math_kernel_op_vec.hip.cu
     source_base/kernels/rocm/math_ylm_op.hip.cu
@@ -754,7 +759,7 @@ add_library(device OBJECT ${device_srcs})
 if(USE_CUDA)
   target_link_libraries(device PRIVATE cusolver cublas cufft)
 elseif(USE_ROCM)
-  target_link_libraries(device PRIVATE device_rocm hip::host hip::device
+  target_link_libraries(device PRIVATE device_rocm hip::host
                                        hip::hipfft roc::hipblas roc::hipsolver)
 endif()
 
@@ -768,6 +773,23 @@ endif()
 # ==============================================================================
 # Final link closure and ordering
 # ==============================================================================
+
+# DTK (Hygon DCU) ships libhipsolver with its own exported BLAS/LAPACK symbols
+# (zdotc_, zpotrf_, ...). A HIP build of ABACUS or of LibDDLA puts it on the
+# link line, and when it precedes the selected BLAS/LAPACK in the executable's
+# DT_NEEDED list, its copies interpose on ScaLAPACK's calls: pzhegvx then
+# reports a non-positive-definite overlap. Naming the selected shared
+# ScaLAPACK/LAPACK/BLAS first makes them resolve these symbols; the ordered
+# closure below still lists them again for static archives.
+if((USE_ROCM OR (ENABLE_DDLA AND NOT USE_CUDA))
+   AND NOT
+       (MKL_FOUND
+        OR USE_KML
+        OR USE_SW
+        OR USE_DSP))
+  target_link_libraries(${ABACUS_BIN_NAME} PRIVATE ${ScaLAPACK_LIBRARIES}
+                                                   ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+endif()
 
 target_link_libraries(
   ${ABACUS_BIN_NAME}

@@ -9,6 +9,27 @@ namespace container {
 namespace hipBlasConnector {
 
 static inline
+void nrm2(hipblasHandle_t& handle, const int& n, const float *x, const int& incx, float* result)
+{
+    hipblasErrcheck(hipblasSnrm2(handle, n, x, incx, result));
+}
+static inline
+void nrm2(hipblasHandle_t& handle, const int& n, const double *x, const int& incx, double* result)
+{
+    hipblasErrcheck(hipblasDnrm2(handle, n, x, incx, result));
+}
+static inline
+void nrm2(hipblasHandle_t& handle, const int& n, const std::complex<float> *x, const int& incx, float* result)
+{
+    hipblasErrcheck(hipblasScnrm2(handle, n, reinterpret_cast<const hipblasComplex*>(x), incx, result));
+}
+static inline
+void nrm2(hipblasHandle_t& handle, const int& n, const std::complex<double> *x, const int& incx, double* result)
+{
+    hipblasErrcheck(hipblasDznrm2(handle, n, reinterpret_cast<const hipblasDoubleComplex*>(x), incx, result));
+}
+
+static inline
 void dot(hipblasHandle_t& handle, const int& n, const float *x, const int& incx, const float *y, const int& incy, float* result)
 {
     hipblasErrcheck(hipblasSdot(handle, n, x, incx, y, incy, result));

@@ -25,12 +25,13 @@ void destroyGpuBlasHandle() {
 
 template <typename T>
 struct blas_nrm2<T, DEVICE_GPU> {
-    T operator()(
+    using Real = typename GetTypeReal<T>::type;
+    Real operator()(
         const int n,
         const T *x,
         const int incx)
     {
-        T result;
+        Real result;
         hipBlasConnector::nrm2(hipblas_handle, n, x, incx, &result);
         return result;
     }

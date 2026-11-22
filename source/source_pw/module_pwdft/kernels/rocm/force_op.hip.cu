@@ -698,6 +698,159 @@ void revertVkbValues(
     hipCheckOnDebug();
 }
 
+// Local-pseudopotential and Ewald forces, ported from ../cuda/force_op.cu. One block per
+// atom; the CUDA warp-shuffle reduction (32-lane warps) is replaced by a shared-memory tree
+// reduction, which does not depend on the wavefront width.
+template <typename FPTYPE>
+__device__ void block_reduce3(FPTYPE& x, FPTYPE& y, FPTYPE& z)
+{
+    __shared__ FPTYPE sx[THREADS_PER_BLOCK];
+    __shared__ FPTYPE sy[THREADS_PER_BLOCK];
+    __shared__ FPTYPE sz[THREADS_PER_BLOCK];
+    const int tid = threadIdx.x;
+    sx[tid] = x; sy[tid] = y; sz[tid] = z;
+    __syncthreads();
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1)
+    {
+        if (tid < stride)
+        {
+            sx[tid] += sx[tid + stride];
+            sy[tid] += sy[tid + stride];
+            sz[tid] += sz[tid + stride];
+        }
+        __syncthreads();
+    }
+    x = sx[0]; y = sy[0]; z = sz[0];
+}
+
+template <typename FPTYPE>
+__global__ void force_loc_kernel(
+    const int nat,
+    const int npw,
+    const FPTYPE tpiba_omega,
+    const int* iat2it,
+    const int* ig2gg_d,
+    const FPTYPE* gcar_d,
+    const FPTYPE* tau_d,
+    const thrust::complex<FPTYPE>* aux_d,
+    const FPTYPE* vloc_d,
+    const int vloc_nc,
+    FPTYPE* forcelc_d)
+{
+    const FPTYPE two_pi = 2.0 * 3.14159265358979323846;
+    const int iat = blockIdx.x;
+    if (iat >= nat) return;
+    const int it = iat2it[iat];
+    FPTYPE force_x = 0.0, force_y = 0.0, force_z = 0.0;
+    const FPTYPE tau_x = tau_d[iat * 3 + 0];
+    const FPTYPE tau_y = tau_d[iat * 3 + 1];
+    const FPTYPE tau_z = tau_d[iat * 3 + 2];
+    for (int ig = threadIdx.x; ig < npw; ig += blockDim.x)
+    {
+        const FPTYPE gcar_x = gcar_d[ig * 3 + 0];
+        const FPTYPE gcar_y = gcar_d[ig * 3 + 1];
+        const FPTYPE gcar_z = gcar_d[ig * 3 + 2];
+        const FPTYPE phase = two_pi * (gcar_x * tau_x + gcar_y * tau_y + gcar_z * tau_z);
+        const FPTYPE sinp = sin(phase);
+        const FPTYPE cosp = cos(phase);
+        const FPTYPE vloc_val = vloc_d[it * vloc_nc + ig2gg_d[ig]];
+        const thrust::complex<FPTYPE> aux_val = aux_d[ig];
+        const FPTYPE factor = vloc_val * (cosp * aux_val.imag() + sinp * aux_val.real());
+        force_x += gcar_x * factor;
+        force_y += gcar_y * factor;
+        force_z += gcar_z * factor;
+    }
+    block_reduce3(force_x, force_y, force_z);
+    if (threadIdx.x == 0)
+    {
+        forcelc_d[iat * 3 + 0] = force_x * tpiba_omega;
+        forcelc_d[iat * 3 + 1] = force_y * tpiba_omega;
+        forcelc_d[iat * 3 + 2] = force_z * tpiba_omega;
+    }
+}
+
+template <typename FPTYPE>
+__global__ void force_ew_kernel(
+    const int nat,
+    const int npw,
+    const int ig_gge0,
+    const int* iat2it,
+    const FPTYPE* gcar_d,
+    const FPTYPE* tau_d,
+    const FPTYPE* it_fact_d,
+    const thrust::complex<FPTYPE>* aux_d,
+    FPTYPE* forceion_d)
+{
+    const FPTYPE two_pi = 2.0 * 3.14159265358979323846;
+    const int iat = blockIdx.x;
+    if (iat >= nat) return;
+    const int it = iat2it[iat];
+    const FPTYPE it_fact_val = it_fact_d[it];
+    FPTYPE force_x = 0.0, force_y = 0.0, force_z = 0.0;
+    const FPTYPE tau_x = tau_d[iat * 3 + 0];
+    const FPTYPE tau_y = tau_d[iat * 3 + 1];
+    const FPTYPE tau_z = tau_d[iat * 3 + 2];
+    for (int ig = threadIdx.x; ig < npw; ig += blockDim.x)
+    {
+        if (ig == ig_gge0) continue;
+        const FPTYPE gcar_x = gcar_d[ig * 3 + 0];
+        const FPTYPE gcar_y = gcar_d[ig * 3 + 1];
+        const FPTYPE gcar_z = gcar_d[ig * 3 + 2];
+        const FPTYPE phase = two_pi * (gcar_x * tau_x + gcar_y * tau_y + gcar_z * tau_z);
+        const FPTYPE sinp = sin(phase);
+        const FPTYPE cosp = cos(phase);
+        const FPTYPE sumnb = -cosp * aux_d[ig].imag() + sinp * aux_d[ig].real();
+        force_x += gcar_x * sumnb;
+        force_y += gcar_y * sumnb;
+        force_z += gcar_z * sumnb;
+    }
+    block_reduce3(force_x, force_y, force_z);
+    if (threadIdx.x == 0)
+    {
+        forceion_d[iat * 3 + 0] = force_x * it_fact_val;
+        forceion_d[iat * 3 + 1] = force_y * it_fact_val;
+        forceion_d[iat * 3 + 2] = force_z * it_fact_val;
+    }
+}
+
+template <typename FPTYPE>
+void cal_force_loc_op<FPTYPE, base_device::DEVICE_GPU>::operator()(
+    const int nat,
+    const int npw,
+    const FPTYPE tpiba_omega,
+    const int* iat2it,
+    const int* ig2igg,
+    const FPTYPE* gcar,
+    const FPTYPE* tau,
+    const std::complex<FPTYPE>* aux,
+    const FPTYPE* vloc,
+    const int vloc_nc,
+    FPTYPE* forcelc)
+{
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(force_loc_kernel<FPTYPE>), dim3(nat), dim3(THREADS_PER_BLOCK), 0, 0,
+        nat, npw, tpiba_omega, iat2it, ig2igg, gcar, tau,
+        reinterpret_cast<const thrust::complex<FPTYPE>*>(aux), vloc, vloc_nc, forcelc);
+    hipCheckOnDebug();
+}
+
+template <typename FPTYPE>
+void cal_force_ew_op<FPTYPE, base_device::DEVICE_GPU>::operator()(
+    const int nat,
+    const int npw,
+    const int ig_gge0,
+    const int* iat2it,
+    const FPTYPE* gcar,
+    const FPTYPE* tau,
+    const FPTYPE* it_fact,
+    const std::complex<FPTYPE>* aux,
+    FPTYPE* forceion)
+{
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(force_ew_kernel<FPTYPE>), dim3(nat), dim3(THREADS_PER_BLOCK), 0, 0,
+        nat, npw, ig_gge0, iat2it, gcar, tau, it_fact,
+        reinterpret_cast<const thrust::complex<FPTYPE>*>(aux), forceion);
+    hipCheckOnDebug();
+}
+
 // for revertVkbValues functions instantiation
 template void revertVkbValues<double>(const int *gcar_zero_ptrs, std::complex<double> *vkb_ptr, const std::complex<double> *vkb_save_ptr, int nkb, int gcar_zero_count, int npw, int ipol, int npwx, const std::complex<double> coeff);
 template void revertVkbValues<float>(const int *gcar_zero_ptrs, std::complex<float> *vkb_ptr, const std::complex<float> *vkb_save_ptr, int nkb, int gcar_zero_count, int npw, int ipol, int npwx, const std::complex<float> coeff);
@@ -707,8 +860,12 @@ template void saveVkbValues<float>(const int *gcar_zero_ptrs, const std::complex
 
 template struct cal_vkb1_nl_op<float, base_device::DEVICE_GPU>;
 template struct cal_force_nl_op<float, base_device::DEVICE_GPU>;
+template struct cal_force_loc_op<float, base_device::DEVICE_GPU>;
+template struct cal_force_ew_op<float, base_device::DEVICE_GPU>;
 
 template struct cal_vkb1_nl_op<double, base_device::DEVICE_GPU>;
 template struct cal_force_nl_op<double, base_device::DEVICE_GPU>;
+template struct cal_force_loc_op<double, base_device::DEVICE_GPU>;
+template struct cal_force_ew_op<double, base_device::DEVICE_GPU>;
 
 }  // namespace hamilt

@@ -40,7 +40,7 @@ void edm_tddft_lapack(Parallel_Orbitals& pv,
     using syncmem_complex_d2h_op
         = base_device::memory::synchronize_memory_op<std::complex<double>, base_device::DEVICE_CPU, Device>;
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
     if (ct_device_type == ct::DeviceType::GpuDevice)
     {
         // Initialize cuBLAS & cuSOLVER handle
@@ -271,7 +271,7 @@ void edm_tddft_lapack(Parallel_Orbitals& pv,
 #endif // __MPI
     } // end ik
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
     if (ct_device_type == ct::DeviceType::GpuDevice)
     {
         // Destroy cuBLAS & cuSOLVER handle
@@ -289,7 +289,7 @@ template void edm_tddft_lapack<base_device::DEVICE_CPU>(Parallel_Orbitals& pv,
                                                                    Setup_DM<std::complex<double>>& dmat,
                                                                    K_Vectors& kv,
                                                                    hamilt::Hamilt<std::complex<double>>* p_hamilt);
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void edm_tddft_lapack<base_device::DEVICE_GPU>(Parallel_Orbitals& pv,
                                                                    Setup_DM<std::complex<double>>& dmat,
                                                                    K_Vectors& kv,

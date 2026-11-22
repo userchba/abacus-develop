@@ -1,7 +1,7 @@
 #include "source_estate/kernels/elecstate_op.h"
-#include <thrust/complex.h>
 
 #include <hip/hip_runtime.h>
+#include <thrust/complex.h>
 #include <base/macros/macros.h>
 
 #define THREADS_PER_BLOCK 256
@@ -14,11 +14,12 @@ __global__ void elecstate_pw(
     const int nrxx,
     const FPTYPE w1,
     FPTYPE* rho,
-    const thrust::complex<FPTYPE>* wfcr)
+    const thrust::complex<FPTYPE>* wfcr,
+    const int nrxx_dense)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if(idx >= nrxx) {return;}
-  rho[spin * nrxx + idx] += w1 * norm(wfcr[idx]);
+  rho[spin * nrxx_dense + idx] += w1 * norm(wfcr[idx]);
 }
 
 template<typename FPTYPE>
@@ -29,31 +30,32 @@ __global__ void elecstate_pw(
     const FPTYPE w1,
     FPTYPE* rho,
     const thrust::complex<FPTYPE>* wfcr,
-    const thrust::complex<FPTYPE>* wfcr_another_spin)
+    const thrust::complex<FPTYPE>* wfcr_another_spin,
+    const int nrxx_dense)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if(idx >= nrxx) {return;}
-  rho[0 * nrxx + idx] += w1 * (norm(wfcr[idx]) + norm(wfcr_another_spin[idx]));
+  rho[0 * nrxx_dense + idx] += w1 * (norm(wfcr[idx]) + norm(wfcr_another_spin[idx]));
 
   if (DOMAG) {
-    rho[1 * nrxx + idx] += w1 * 2.0
+    rho[1 * nrxx_dense + idx] += w1 * 2.0
                   * (wfcr[idx].real() * wfcr_another_spin[idx].real()
                   +  wfcr[idx].imag() * wfcr_another_spin[idx].imag());
-    rho[2 * nrxx + idx] += w1 * 2.0
+    rho[2 * nrxx_dense + idx] += w1 * 2.0
                   * (wfcr[idx].real() * wfcr_another_spin[idx].imag()
                   - wfcr_another_spin[idx].real() * wfcr[idx].imag());
-    rho[3 * nrxx + idx] += w1 * (norm(wfcr[idx]) - norm(wfcr_another_spin[idx]));
+    rho[3 * nrxx_dense + idx] += w1 * (norm(wfcr[idx]) - norm(wfcr_another_spin[idx]));
   }
   else if(DOMAG_Z) {
-    rho[1 * nrxx + idx] = 0;
-    rho[2 * nrxx + idx] = 0;
-    rho[3 * nrxx + idx] += w1 * (norm(wfcr[idx]) - norm(wfcr_another_spin[idx]));
+    rho[1 * nrxx_dense + idx] = 0;
+    rho[2 * nrxx_dense + idx] = 0;
+    rho[3 * nrxx_dense + idx] += w1 * (norm(wfcr[idx]) - norm(wfcr_another_spin[idx]));
   }
   else {
     // Keep the scalar charge accumulated above; only magnetization is disabled.
-    rho[1 * nrxx + idx] = 0;
-    rho[2 * nrxx + idx] = 0;
-    rho[3 * nrxx + idx] = 0;
+    rho[1 * nrxx_dense + idx] = 0;
+    rho[2 * nrxx_dense + idx] = 0;
+    rho[3 * nrxx_dense + idx] = 0;
   }
 }
 
@@ -61,17 +63,19 @@ template <typename FPTYPE>
 void elecstate_pw_op<FPTYPE, base_device::DEVICE_GPU>::operator()(const base_device::DEVICE_GPU* ctx,
                                                                   const int& spin,
                                                                   const int& nrxx,
+                                                                  const int& nrxx_dense,
                                                                   const FPTYPE& w1,
                                                                   FPTYPE** rho,
                                                                   const std::complex<FPTYPE>* wfcr)
 {
   const int block = (nrxx + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-  hipLaunchKernelGGL(HIP_KERNEL_NAME(elecstate_pw<FPTYPE>), dim3(block), dim3(THREADS_PER_BLOCK), 0, 0,
+  elecstate_pw<FPTYPE><<<block, THREADS_PER_BLOCK>>>(
     spin, nrxx, w1, rho[0],
-    reinterpret_cast<const thrust::complex<FPTYPE>*>(wfcr)
+    reinterpret_cast<const thrust::complex<FPTYPE>*>(wfcr),
+    nrxx_dense
   );
 
-   hipCheckOnDebug();
+  hipCheckOnDebug();
 }
 
 template <typename FPTYPE>
@@ -79,21 +83,24 @@ void elecstate_pw_op<FPTYPE, base_device::DEVICE_GPU>::operator()(const base_dev
                                                                   const bool& DOMAG,
                                                                   const bool& DOMAG_Z,
                                                                   const int& nrxx,
+                                                                  const int& nrxx_dense,
                                                                   const FPTYPE& w1,
                                                                   FPTYPE** rho,
                                                                   const std::complex<FPTYPE>* wfcr,
                                                                   const std::complex<FPTYPE>* wfcr_another_spin)
 {
   const int block = (nrxx + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-  hipLaunchKernelGGL(HIP_KERNEL_NAME(elecstate_pw<FPTYPE>), dim3(block), dim3(THREADS_PER_BLOCK), 0, 0,
+  elecstate_pw<FPTYPE><<<block, THREADS_PER_BLOCK>>>(
     DOMAG, DOMAG_Z, nrxx, w1, rho[0],
     reinterpret_cast<const thrust::complex<FPTYPE>*>(wfcr),
-    reinterpret_cast<const thrust::complex<FPTYPE>*>(wfcr_another_spin)
+    reinterpret_cast<const thrust::complex<FPTYPE>*>(wfcr_another_spin),
+    nrxx_dense
   );
 
-   hipCheckOnDebug();
+  hipCheckOnDebug();
 }
 
 template struct elecstate_pw_op<float, base_device::DEVICE_GPU>;
 template struct elecstate_pw_op<double, base_device::DEVICE_GPU>;
-}
+
+}  // namespace elecstate

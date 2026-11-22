@@ -776,7 +776,7 @@ void ESolver_KS_LCAO_TDDFT<TR, Device>::weight_dm_rho(const UnitCell& ucell)
 
 template class ESolver_KS_LCAO_TDDFT<double, base_device::DEVICE_CPU>;
 template class ESolver_KS_LCAO_TDDFT<std::complex<double>, base_device::DEVICE_CPU>;
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template class ESolver_KS_LCAO_TDDFT<double, base_device::DEVICE_GPU>;
 template class ESolver_KS_LCAO_TDDFT<std::complex<double>, base_device::DEVICE_GPU>;
 #endif

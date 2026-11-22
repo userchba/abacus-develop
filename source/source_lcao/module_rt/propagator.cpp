@@ -94,7 +94,7 @@ template void Propagator::compute_propagator_tensor<base_device::DEVICE_CPU>(con
                                                                              const int print_matrix,
                                                                              const bool use_lapack,
                                                                              CublasMpResources& cublas_res) const;
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void Propagator::compute_propagator_tensor<base_device::DEVICE_GPU>(const int nlocal,
                                                                              const ct::Tensor& Stmp,
                                                                              const ct::Tensor& Htmp,

@@ -251,7 +251,7 @@ void Evolve_elec<Device>::solve_psi(const std::vector<EijOutputInfo>& eij_output
 }
 
 template class Evolve_elec<base_device::DEVICE_CPU>;
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template class Evolve_elec<base_device::DEVICE_GPU>;
 #endif
 } // namespace module_rt

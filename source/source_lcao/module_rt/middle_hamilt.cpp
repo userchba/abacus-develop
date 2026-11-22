@@ -280,7 +280,7 @@ template void half_Hmatrix_tensor_lapack<base_device::DEVICE_CPU>(const Parallel
                                                                   const ct::Tensor& S_laststep,
                                                                   std::ofstream& ofs_running,
                                                                   const int print_matrix);
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void half_Hmatrix_tensor_lapack<base_device::DEVICE_GPU>(const Parallel_Orbitals* pv,
                                                                   const int nband,
                                                                   const int nlocal,

@@ -537,10 +537,12 @@ if(USE_ROCM)
     endif()
   endif()
   set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
-  set(HIP_HIPCC_FLAGS -fno-gpu-rdc; --std=c++14) # --amdgpu-target=gfx906
 
   # find_package(ROCM REQUIRED)
   find_package(HIP REQUIRED)
+  # After find_package(HIP): FindHIP declares the HIP_HIPCC_FLAGS cache entry,
+  # which (policy CMP0126 OLD) would drop a normal variable set before it.
+  list(APPEND HIP_HIPCC_FLAGS -fno-gpu-rdc --std=c++14) # --amdgpu-target=gfx906
   find_package(hipfft REQUIRED)
   find_package(hipblas REQUIRED)
   find_package(hipsolver REQUIRED)

@@ -63,8 +63,8 @@
 // Peer access
 #define gpuDeviceCanAccessPeer          hipDeviceCanAccessPeer
 
-// Error check macro
-#define gpuErrcheck                     CHECK_CUDA
+// Error check macro (defined in base/macros/rocm.h)
+#define gpuErrcheck                     hipErrcheck
 
 #endif // __CUDA / __ROCM
 

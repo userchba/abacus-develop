@@ -484,7 +484,7 @@ template void compute_ekb_tensor_lapack<base_device::DEVICE_CPU>(const Parallel_
                                                                  std::ofstream& ofs_running,
                                                                  const EijOutputInfo& output_info);
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void compute_ekb_tensor_lapack<base_device::DEVICE_GPU>(const Parallel_Orbitals* pv,
                                                                  const int nband,
                                                                  const int nlocal,

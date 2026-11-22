@@ -674,43 +674,51 @@ __global__ void cal_stress_drhoc_aux3(
 template <typename FPTYPE>
 __global__ void cal_force_npw(
         const thrust::complex<FPTYPE> *psiv,
-        const FPTYPE* gv_x, const FPTYPE* gv_y, const FPTYPE* gv_z,
+        const FPTYPE* gv,
         const FPTYPE* rhocgigg_vec,
         FPTYPE* force,
-        const FPTYPE pos_x, const FPTYPE pos_y, const FPTYPE pos_z,
+        const FPTYPE* tau,
         const int npw,
         const FPTYPE omega, const FPTYPE tpiba
 ){
-    const double TWO_PI = 2.0 * 3.14159265358979323846;
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int begin_idx = tid * 1024;
-    if(begin_idx > npw) return;
+    const FPTYPE TWO_PI = 2.0 * 3.14159265358979323846;
+    int ia = blockIdx.x;
+    int tid = threadIdx.x;
+    if(tid > npw) return;
 
+    FPTYPE pos_x = tau[ia * 3];
+    FPTYPE pos_y = tau[ia * 3 + 1];
+    FPTYPE pos_z = tau[ia * 3 + 2];
     FPTYPE t_force0 = 0;
     FPTYPE t_force1 = 0;
     FPTYPE t_force2 = 0;
-    for(int ig = begin_idx; ig<begin_idx+1024 && ig<npw;ig++) {
+    for(int ig = tid; ig<npw;ig += blockDim.x) {
         const thrust::complex<FPTYPE> psiv_conj = conj(psiv[ig]);
 
-        const FPTYPE arg = TWO_PI * (gv_x[ig] * pos_x + gv_y[ig] * pos_y + gv_z[ig] * pos_z);
+        const FPTYPE arg = TWO_PI * (gv[ig * 3] * pos_x + gv[ig * 3 + 1] * pos_y + gv[ig * 3 + 2] * pos_z);
         const FPTYPE sinp = sin(arg);
         const FPTYPE cosp = cos(arg);
         const thrust::complex<FPTYPE> expiarg = thrust::complex<FPTYPE>(sinp, cosp);
 
         const thrust::complex<FPTYPE> tmp_var = psiv_conj * expiarg * tpiba * omega * rhocgigg_vec[ig];
 
-        const thrust::complex<FPTYPE> ipol0 = tmp_var * gv_x[ig];
+        const thrust::complex<FPTYPE> ipol0 = tmp_var * gv[ig * 3];
         t_force0 += ipol0.real();
 
-        const thrust::complex<FPTYPE> ipol1 = tmp_var * gv_y[ig];
+        const thrust::complex<FPTYPE> ipol1 = tmp_var * gv[ig * 3 + 1];
         t_force1 += ipol1.real();
 
-        const thrust::complex<FPTYPE> ipol2 = tmp_var * gv_z[ig];
+        const thrust::complex<FPTYPE> ipol2 = tmp_var * gv[ig * 3 + 2];
         t_force2 += ipol2.real();
     }
-    atomicAdd(&force[0], t_force0);
-    atomicAdd(&force[1], t_force1);
-    atomicAdd(&force[2], t_force2);
+    warp_reduce(t_force0);
+    warp_reduce(t_force1);
+    warp_reduce(t_force2);
+    if (threadIdx.x % WARP_SIZE == 0) {
+        atomicAdd(&force[ia * 3], t_force0);
+        atomicAdd(&force[ia * 3 + 1], t_force1);
+        atomicAdd(&force[ia * 3 + 2], t_force2);
+    }
 }
 
 
@@ -978,7 +986,7 @@ __global__ void cal_stress_onsite(
         sum+=nprojs;
         pot_onsite += npol * npol * tlp1_2;
     }//ia
-    __syncwarp();
+    // HIP has no __syncwarp; __shfl_down in warp_reduce works on the whole wavefront.
     warp_reduce(stress_var);
     if (threadIdx.x % WARP_SIZE == 0) {
         atomicAdd(stress, stress_var);
@@ -1044,7 +1052,7 @@ __global__ void cal_stress_onsite(
         ++iat;
         sum+=nprojs;
     }//ia
-    __syncwarp();
+    // HIP has no __syncwarp; __shfl_down in warp_reduce works on the whole wavefront.
     warp_reduce(stress_var);
     if (threadIdx.x % WARP_SIZE == 0) {
         atomicAdd(stress, stress_var);

@@ -74,7 +74,8 @@ Then the user has to correct the input file and restart the calculation.)";
         - genelpa (if compiling option `ENABLE_ELPA` has been set)
         - lapack (if compiling option `ENABLE_MPI` has not been set)
         - scalapack_gvx (if compiling option `ENABLE_ELPA` has not been set and compiling option `ENABLE_MPI` has been set)
-        - cusolver (if compiling option `USE_CUDA` has been set))";
+        - cusolver (if compiling option `USE_CUDA` has been set)
+        - ddla (if `device` is gpu, compiling option `ENABLE_DDLA` has been set and `USE_CUDA` has not))";
         item.unit = "";
         read_sync_string(input.ks_solver);
         item.reset_value = [](const Input_Item& item, Parameter& para) {
@@ -89,8 +90,14 @@ Then the user has to correct the input file and restart the calculation.)";
                 {
                     if (para.input.device == "gpu")
                     {
+#if !defined(__CUDA) && defined(__DDLA)
+                        // cuSOLVER needs CUDA; on other GPUs (ROCm/DCU) LibDDLA is the LCAO GPU solver.
+                        para.input.ks_solver = "ddla";
+                        ModuleBase::GlobalFunc::AUTO_SET("ks_solver", "ddla");
+#else
                         para.input.ks_solver = "cusolver";
                         ModuleBase::GlobalFunc::AUTO_SET("ks_solver", "cusolver");
+#endif
                     }
                     else
                     {
@@ -163,8 +170,13 @@ Then the user has to correct the input file and restart the calculation.)";
                     ModuleBase::WARNING_QUIT("ReadInput", "Cusolver can not be used for series version.");
 #endif
 #ifndef __CUDA
+#if defined(__ROCM)
+                    warningstr = "ks_solver is set to " + ks_solver + " but ABACUS is built with ROCm, not CUDA!\n"
+                    + " Please use ks_solver ddla (ABACUS built with -DENABLE_DDLA=ON) or a CPU solver.";
+#else
                     warningstr = "ks_solver is set to " + ks_solver + " but ABACUS is built with CPU only!\n"
                     + " Please rebuild ABACUS with GPU support or change the ks_solver.";
+#endif
                     ModuleBase::WARNING_QUIT("ReadInput", warningstr);
 #endif
                     if( ks_solver == "cusolvermp")

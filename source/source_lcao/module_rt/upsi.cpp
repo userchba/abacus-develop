@@ -256,7 +256,7 @@ template void upsi_tensor_lapack<base_device::DEVICE_CPU>(const Parallel_Orbital
                                                           ct::Tensor& psi_k,
                                                           std::ofstream& ofs_running,
                                                           const int print_matrix);
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void upsi_tensor_lapack<base_device::DEVICE_GPU>(const Parallel_Orbitals* pv,
                                                           const int nband,
                                                           const int nlocal,

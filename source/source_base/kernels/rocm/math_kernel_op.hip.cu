@@ -450,7 +450,7 @@ void matrix_mul_vector_op<double, base_device::DEVICE_GPU>::operator()(const int
                   double *a, const int &lda, const double *b, const double alpha, double *c, const int &ldc){
     dim3 thread(16, 16, 1);
     dim3 block((m + thread.x - 1) / thread.x, (n + thread.y - 1) / thread.y, 1);
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<double, double>), dim3(block, thread),
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<double, double>), block, thread, 0, 0,
         m, n, a, lda, b, alpha, c, ldc);
     hipCheckOnDebug();
 }
@@ -460,7 +460,7 @@ void matrix_mul_vector_op<std::complex<float>, base_device::DEVICE_GPU>::operato
                   std::complex<float> *a, const int &lda, const float *b, const float alpha, std::complex<float> *c, const int &ldc){
     dim3 thread(16, 16, 1);
     dim3 block((m + thread.x - 1) / thread.x, (n + thread.y - 1) / thread.y, 1);
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<thrust::complex<float>, float>), dim3(block, thread),
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<thrust::complex<float>, float>), block, thread, 0, 0,
         m, n, reinterpret_cast<thrust::complex<float>*>(a), lda,
         b, alpha, reinterpret_cast<thrust::complex<float>*>(c), ldc);
     hipCheckOnDebug();
@@ -472,7 +472,7 @@ void matrix_mul_vector_op<std::complex<double>, base_device::DEVICE_GPU>::operat
 {
     dim3 thread(16, 16, 1);
     dim3 block((m + thread.x - 1) / thread.x, (n + thread.y - 1) / thread.y, 1);
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<thrust::complex<double>, double>), dim3(block, thread),
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(matrix_multiply_vector_kernel<thrust::complex<double>, double>), block, thread, 0, 0,
         m, n, reinterpret_cast<thrust::complex<double>*>(a), lda,
         b, alpha, reinterpret_cast<thrust::complex<double>*>(c), ldc);
     hipCheckOnDebug();

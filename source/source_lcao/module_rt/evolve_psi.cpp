@@ -189,7 +189,7 @@ void evolve_psi_tensor(const int nband,
     // Memory operations
     using syncmem_complex_h2d_op = base_device::memory::synchronize_memory_op<std::complex<double>, Device, base_device::DEVICE_CPU>;
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
     if (ct_device_type == ct::DeviceType::GpuDevice)
     {
         // Initialize cuBLAS & cuSOLVER handle
@@ -331,7 +331,7 @@ void evolve_psi_tensor(const int nband,
     }
 #endif // __MPI
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
     if (ct_device_type == ct::DeviceType::GpuDevice)
     {
         // Destroy cuBLAS & cuSOLVER handle
@@ -363,7 +363,7 @@ template void evolve_psi_tensor<base_device::DEVICE_CPU>(const int nband,
                                                          CublasMpResources& cublas_res,
                                                          const EijOutputInfo& output_info);
 
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void evolve_psi_tensor<base_device::DEVICE_GPU>(const int nband,
                                                          const int nlocal,
                                                          const Parallel_Orbitals* pv,

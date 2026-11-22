@@ -645,7 +645,7 @@ template void Propagator::compute_propagator_cn2_tensor_lapack<base_device::DEVI
                                                                                         ct::Tensor& U_operator,
                                                                                         std::ofstream& ofs_running,
                                                                                         const int print_matrix) const;
-#if ((defined __CUDA) /* || (defined __ROCM) */)
+#if ((defined __CUDA) || (defined __ROCM))
 template void Propagator::compute_propagator_cn2_tensor_lapack<base_device::DEVICE_GPU>(const int nlocal,
                                                                                         const ct::Tensor& Stmp,
                                                                                         const ct::Tensor& Htmp,

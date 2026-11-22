@@ -1,6 +1,7 @@
 #include "source_hsolver/kernels/hegvd_op.h"
 
 #include <hip/hip_runtime.h>
+#include <vector>
 #include <base/macros/macros.h>
 
 namespace hsolver {
@@ -106,7 +107,7 @@ void hegvd_op<std::complex<float>, base_device::DEVICE_GPU>::operator()(const ba
                                                                         const int nstart,
                                                                         const int ldh,
                                                                         const std::complex<float>* _hcc,
-                                                                        const std::complex<float>* _scc,
+                                                                        std::complex<float>* _scc,
                                                                         float* _eigenvalue,
                                                                         std::complex<float>* _vcc)
 {
@@ -178,7 +179,7 @@ void hegvd_op<std::complex<double>, base_device::DEVICE_GPU>::operator()(const b
                                                                          const int nstart,
                                                                          const int ldh,
                                                                          const std::complex<double>* _hcc,
-                                                                         const std::complex<double>* _scc,
+                                                                         std::complex<double>* _scc,
                                                                          double* _eigenvalue,
                                                                          std::complex<double>* _vcc
                                                                         )
