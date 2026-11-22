@@ -6,6 +6,7 @@
 #include <cmath>
 #include <stdexcept>
 #include "source_base/module_container/base/third_party/lapack.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
 namespace LR_Util
 {
@@ -204,209 +205,89 @@ namespace LR_Util
 
 #ifdef __MPI
     template<>
-    void matsym<double>(const double* in, const int n, const BlockCyclicDistribution& pmat, double* out)
+    void matsym<double>(const ModuleBase::DdlaContext* ddla, const double* in, const int n, const BlockCyclicDistribution& pmat, double* out)
     {
         std::copy(in, in + pmat.size(), out);
         const double alpha = 0.5, beta = 0.5;
-        const int i1 = 1;
-        ScalapackConnector::tranu(n,
-            n,
-            alpha,
-            in,
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            out,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, in, pmat.desc(), beta, out, pmat.desc());
     }
     template<>
-    void matsym<double>(double* inout, const int n, const BlockCyclicDistribution& pmat)
+    void matsym<double>(const ModuleBase::DdlaContext* ddla, double* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<double> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const double alpha = 0.5, beta = 0.5;
-        const int i1 = 1;
-        ScalapackConnector::tranu(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
     template<>
-    void matsym<std::complex<double>>(const std::complex<double>* in, const int n, const BlockCyclicDistribution& pmat, std::complex<double>* out)
+    void matsym<std::complex<double>>(const ModuleBase::DdlaContext* ddla, const std::complex<double>* in, const int n, const BlockCyclicDistribution& pmat, std::complex<double>* out)
     {
         std::copy(in, in + pmat.size(), out);
         const std::complex<double> alpha(0.5, 0.0), beta(0.5, 0.0);
-        const int i1 = 1;
-        ScalapackConnector::tranc(n,
-            n,
-            alpha,
-            in,
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            out,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, in, pmat.desc(), beta, out, pmat.desc());
     }
     template<>
-    void matsym<std::complex<double>>(std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
+    void matsym<std::complex<double>>(const ModuleBase::DdlaContext* ddla, std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<std::complex<double>> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const std::complex<double> alpha(0.5, 0.0), beta(0.5, 0.0);
-        const int i1 = 1;
-        ScalapackConnector::tranc(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
 
     template<>
-    void mattrans<double>(const double* in, const int n, const BlockCyclicDistribution& pmat, double* out)
+    void mattrans<double>(const ModuleBase::DdlaContext* ddla, const double* in, const int n, const BlockCyclicDistribution& pmat, double* out)
     {
         std::copy(in, in + pmat.size(), out);
         const double alpha = 1.0;
         const double beta = 0.0;
-        const int i1 = 1;
-        ScalapackConnector::tranu(n,
-            n,
-            alpha,
-            in,
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            out,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, in, pmat.desc(), beta, out, pmat.desc());
     }
     template<>
-    void mattrans<double>(double* inout, const int n, const BlockCyclicDistribution& pmat)
+    void mattrans<double>(const ModuleBase::DdlaContext* ddla, double* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<double> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const double alpha = 1.0;
         const double beta = 0.0;
-        const int i1 = 1;
-        ScalapackConnector::tranu(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
     template<>
-    void mattrans<std::complex<double>>(const std::complex<double>* in, const int n, const BlockCyclicDistribution& pmat, std::complex<double>* out)
+    void mattrans<std::complex<double>>(const ModuleBase::DdlaContext* ddla, const std::complex<double>* in, const int n, const BlockCyclicDistribution& pmat, std::complex<double>* out)
     {
         std::copy(in, in + pmat.size(), out);
         const std::complex<double> alpha(1.0, 0.0);
         const std::complex<double> beta(0.0, 0.0);
-        const int i1 = 1;
-        ScalapackConnector::tranc(n,
-            n,
-            alpha,
-            in,
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            out,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, in, pmat.desc(), beta, out, pmat.desc());
     }
     template<>
-    void mattrans<std::complex<double>>(std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
+    void mattrans<std::complex<double>>(const ModuleBase::DdlaContext* ddla, std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<std::complex<double>> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const std::complex<double> alpha(1.0, 0.0);
         const std::complex<double> beta(0.0, 0.0);
-        const int i1 = 1;
-        ScalapackConnector::tranc(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
 
 
     template<>
-    void matantisym<double>(double* inout, const int n, const BlockCyclicDistribution& pmat)
+    void matantisym<double>(const ModuleBase::DdlaContext* ddla, double* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<double> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const double alpha = -0.5;
         const double beta = 0.5;
-        const int i1 = 1;
-        ScalapackConnector::tranu(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
     template<>
-    void matantisym<std::complex<double>>(std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
+    void matantisym<std::complex<double>>(const ModuleBase::DdlaContext* ddla, std::complex<double>* inout, const int n, const BlockCyclicDistribution& pmat)
     {
         std::vector<std::complex<double>> tmp(pmat.size());
         std::copy(inout, inout + pmat.size(), tmp.begin());
         const std::complex<double> alpha(-0.5, 0.0);
         const std::complex<double> beta(0.5, 0.0);
-        const int i1 = 1;
-        ScalapackConnector::tranc(n,
-            n,
-            alpha,
-            tmp.data(),
-            i1,
-            i1,
-            pmat.desc(),
-            beta,
-            inout,
-            i1,
-            i1,
-            pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, tmp.data(), pmat.desc(), beta, inout, pmat.desc());
     }
 #endif
 

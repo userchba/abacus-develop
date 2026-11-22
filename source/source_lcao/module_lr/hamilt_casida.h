@@ -39,12 +39,13 @@ namespace LR
                const std::vector<BlockCyclicDistribution>& pX_in,
                const BlockCyclicDistribution& pc_in,
                const Parallel_Orbitals& pmat_in,
+               const ModuleBase::DdlaContext* ddla_in,
                const std::string& spin_type,
                const std::string& in_dir,
                const std::string& out_dir,
                const std::string& ri_hartree_benchmark = "none",
                const std::vector<int>& aims_nbasis = {})
-          : HamiltLR(nspin, nocc, nvirt, pX_in, kv_in, pmat_in)
+          : HamiltLR(nspin, nocc, nvirt, pX_in, kv_in, pmat_in, ddla_in)
         {
             ModuleBase::TITLE("HamiltLR", "HamiltLR");
             if (ri_hartree_benchmark != "aims" && ri_hartree_benchmark !="aims-librpa") { assert(aims_nbasis.empty()); }
@@ -110,7 +111,7 @@ namespace LR
 #endif
             {
                 hamilt::Operator<T>* lr_hxc = new OperatorLRHxc<T>(nspin, naos, nocc, nvirt, psi_ks_in,
-                    *this->DM_trans, pot_in, ucell_in, orb_cutoff, gd_in, kv_in, pX_in, pc_in, pmat_in, {0}, T(1.0), OperatorLRHxc<T>::MO_TO_AO_TYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc);
+                    *this->DM_trans, pot_in, ucell_in, orb_cutoff, gd_in, kv_in, pX_in, pc_in, pmat_in, this->ddla, {0}, T(1.0), OperatorLRHxc<T>::MO_TO_AO_TYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc);
                 this->ops->add(lr_hxc);
             }
 #ifdef __EXX
@@ -125,7 +126,7 @@ namespace LR
                 // this ground-state Casida operator is always MO_TO_AO_TYPE::CC_vo, which never
                 // reads the force-only coxt_full/cvx_full buffers, so cal_force is always false.
                 hamilt::Operator<T>* lr_exx = new OperatorLREXX<T>(nspin, naos, nocc[0], nvirt[0], ucell_in, psi_ks_in,
-                    *this->DM_trans, exx_lri_in, kv_in, pX_in[0], pc_in, pmat_in,
+                    *this->DM_trans, exx_lri_in, kv_in, pX_in[0], pc_in, pmat_in, this->ddla,
                     /*cal_force=*/false,
                     (xc_kernel == "hf" ? 1.0 : exx_alpha), //alpha
                     OperatorLREXX<T>::MO_TO_AO_TYPE::CC_vo,
@@ -138,8 +139,8 @@ namespace LR
                 {
                     const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks_in, is, nk);
 #ifdef __MPI
-                    std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(X, pX[is], psi_ks_is, pc_in, naos, nocc[is], nvirt[is], pmat_in.para_2d(), (T)1.0 / (T)nk);
-                    if (this->tdm_sym) for (auto& t : dm_trans_2d) LR_Util::matsym(t.data<T>(), naos, pmat_in.para_2d());
+                    std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(this->ddla, X, pX[is], psi_ks_is, pc_in, naos, nocc[is], nvirt[is], pmat_in.para_2d(), (T)1.0 / (T)nk);
+                    if (this->tdm_sym) for (auto& t : dm_trans_2d) LR_Util::matsym(this->ddla, t.data<T>(), naos, pmat_in.para_2d());
 #else
                     std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_blas(X, psi_ks_is, nocc[is], nvirt[is], (T)1.0 / (T)nk);
                     if (this->tdm_sym) for (auto& t : dm_trans_2d) LR_Util::matsym(t.data<T>(), naos);
@@ -199,6 +200,8 @@ namespace LR
         const int nspin = 1;
         const int nk = 1;
         const std::vector<BlockCyclicDistribution>& pX;
+        /// LibDDLA handle bound to the grid of pX/pc/pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* const ddla = nullptr;
     protected:
         /// Initialize shared storage without constructing a Casida operator chain or
         /// installing its density callback. Z operators build their own chains directly.
@@ -208,9 +211,10 @@ namespace LR
                  const std::vector<int>& nvirt_in,
                  const std::vector<BlockCyclicDistribution>& pX_in,
                  const K_Vectors& kv_in,
-                 const Parallel_Orbitals& pmat_in)
+                 const Parallel_Orbitals& pmat_in,
+                 const ModuleBase::DdlaContext* ddla_in)
             : nocc(nocc_in), nvirt(nvirt_in), nspin(nspin_in),
-              nk(kv_in.get_nks() / nspin_in), pX(pX_in)
+              nk(kv_in.get_nks() / nspin_in), pX(pX_in), ddla(ddla_in)
         {
             // Both Casida and Z operators use one transition-density spin channel.
             this->DM_trans = LR_Util::make_unique<module_dm::DensityMatrix<T, T>>(

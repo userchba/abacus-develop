@@ -1,14 +1,13 @@
 #include "zeqlin_solv.h"
 
 #ifdef __MPI
-#include <algorithm>
 #include <cassert>
 #include <complex>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/timer.h"
 #include "source_base/tool_title.h"
 
@@ -18,13 +17,13 @@ namespace LR
     /// triangle, so any numerical asymmetry of A would otherwise be dropped silently instead of
     /// averaged.
     template <typename T>
-    void hermitize_2d(T* A, const BlockCyclicDistribution& pA)
+    void hermitize_2d(const ModuleBase::DdlaContext* ddla, T* A, const BlockCyclicDistribution& pA)
     {
         const int n = pA.nrglb();
         std::vector<T> AH(pA.size(), T(0));
         const T one(1.0);
         const T zero(0.0);
-        ScalapackConnector::tranc(n, n, one, A, 1, 1, pA.desc(), zero, AH.data(), 1, 1, pA.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, one, A, pA.desc(), zero, AH.data(), pA.desc());
         for (std::size_t i = 0; i < AH.size(); ++i)
         {
             A[i] = 0.5 * (A[i] + AH[i]);
@@ -32,7 +31,7 @@ namespace LR
     }
 
     template <typename T>
-    void scalapack_linear_solver(T* A, T* B, const BlockCyclicDistribution& pA, const BlockCyclicDistribution& pB)
+    void scalapack_linear_solver(const ModuleBase::DdlaContext* ddla, T* A, T* B, const BlockCyclicDistribution& pA, const BlockCyclicDistribution& pB)
     {
         ModuleBase::TITLE("LR", "scalapack_linear_solver");
         ModuleBase::timer::start("LR", "scalapack_linear_solver");
@@ -42,10 +41,7 @@ namespace LR
         assert(pB.nrglb() == n);
         assert(pA.ictxt() == pB.ictxt());
         assert(pA.nb() == pB.nb());
-        // p?gesv needs LOCr(M_A) + MB_A pivot entries
-        std::vector<int> ipiv(pA.nrloc() + pA.nb());
-        int info = 0;
-        ScalapackConnector::gesv(n, nrhs, A, 1, 1, pA.desc(), ipiv.data(), B, 1, 1, pB.desc(), &info);
+        const int info = ModuleBase::ddla_linalg::gesv(ddla, n, nrhs, A, pA.desc(), B, pB.desc());
         if (info != 0)
         {
             ModuleBase::timer::end("LR", "scalapack_linear_solver");
@@ -55,7 +51,7 @@ namespace LR
     }
 
     template <typename T>
-    void scalapack_cholesky_linear_solver(T* A, T* B, const BlockCyclicDistribution& pA, const BlockCyclicDistribution& pB)
+    void scalapack_cholesky_linear_solver(const ModuleBase::DdlaContext* ddla, T* A, T* B, const BlockCyclicDistribution& pA, const BlockCyclicDistribution& pB)
     {
         ModuleBase::TITLE("LR", "scalapack_cholesky_linear_solver");
         ModuleBase::timer::start("LR", "scalapack_cholesky_linear_solver");
@@ -66,16 +62,14 @@ namespace LR
         assert(pA.ictxt() == pB.ictxt());
         assert(pA.nb() == pB.nb());
 
-        hermitize_2d(A, pA);
+        hermitize_2d(ddla, A, pA);
 
-        // A = U^H U, U in the upper triangle. p?potrf's INFO is global output, so a
+        // A = U^H U, U in the upper triangle. The factorization's INFO is global output, so a
         // non-positive-definite A is reported identically on every rank.
-        int desc_a[9];
-        std::copy(pA.desc(), pA.desc() + 9, desc_a);
-        int info = ScalapackConnector::potrf('U', n, A, desc_a);
+        const int info = ModuleBase::ddla_linalg::posv(ddla, 'U', n, nrhs, A, pA.desc(), B, pB.desc());
         if (info != 0)
         {
-            std::string message = "scalapack_cholesky_linear_solver: p?potrf failed, info="
+            std::string message = "scalapack_cholesky_linear_solver: p?potrf/p?potrs failed, info="
                 + std::to_string(info);
             if (info > 0)
             {
@@ -85,22 +79,15 @@ namespace LR
             ModuleBase::timer::end("LR", "scalapack_cholesky_linear_solver");
             throw std::runtime_error(message);
         }
-        ScalapackConnector::potrs('U', n, nrhs, A, 1, 1, pA.desc(), B, 1, 1, pB.desc(), &info);
-        if (info != 0)
-        {
-            ModuleBase::timer::end("LR", "scalapack_cholesky_linear_solver");
-            throw std::runtime_error("scalapack_cholesky_linear_solver: p?potrs failed, info="
-                + std::to_string(info));
-        }
         ModuleBase::timer::end("LR", "scalapack_cholesky_linear_solver");
     }
 
-    template void scalapack_linear_solver<double>(double*, double*, const BlockCyclicDistribution&, const BlockCyclicDistribution&);
-    template void scalapack_linear_solver<std::complex<double>>(std::complex<double>*, std::complex<double>*,
+    template void scalapack_linear_solver<double>(const ModuleBase::DdlaContext*, double*, double*, const BlockCyclicDistribution&, const BlockCyclicDistribution&);
+    template void scalapack_linear_solver<std::complex<double>>(const ModuleBase::DdlaContext*, std::complex<double>*, std::complex<double>*,
         const BlockCyclicDistribution&, const BlockCyclicDistribution&);
-    template void scalapack_cholesky_linear_solver<double>(double*, double*, const BlockCyclicDistribution&,
+    template void scalapack_cholesky_linear_solver<double>(const ModuleBase::DdlaContext*, double*, double*, const BlockCyclicDistribution&,
         const BlockCyclicDistribution&);
-    template void scalapack_cholesky_linear_solver<std::complex<double>>(std::complex<double>*,
+    template void scalapack_cholesky_linear_solver<std::complex<double>>(const ModuleBase::DdlaContext*, std::complex<double>*,
         std::complex<double>*, const BlockCyclicDistribution&, const BlockCyclicDistribution&);
 
 }

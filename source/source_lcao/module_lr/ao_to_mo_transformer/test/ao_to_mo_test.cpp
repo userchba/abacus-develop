@@ -167,9 +167,9 @@ TEST_F(AO2MOTest, DoubleParallel)
                 set_rand(V.at(isk).data<double>(), pV.size());
                 set_rand(&c(isk, 0, 0), pc.size());
             }
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvo, &vo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VO, unit_factor);
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, poo, &oo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::OO, unit_factor);
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvv, &vv_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VV, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvo, &vo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VO, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, poo, &oo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::OO, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvv, &vv_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VV, unit_factor);
             // gather AX and output
             for (int isk = 0;isk < s.nks;++isk)
             {
@@ -239,9 +239,9 @@ TEST_F(AO2MOTest, ComplexParallel)
                 set_rand(V.at(isk).data<std::complex<double>>(), pV.size());
                 set_rand(&c(isk, 0, 0), pc.size());
             }
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvo, &vo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VO, unit_factor);
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, poo, &oo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::OO, unit_factor);
-            LR::ao_to_mo_pblas(V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvv, &vv_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VV, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvo, &vo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VO, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, poo, &oo_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::OO, unit_factor);
+            LR::ao_to_mo_pblas(nullptr, V, pV, c, pc, s.naos, s.nocc, s.nvirt, pvv, &vv_pblas_loc(istate, 0, 0), false, LR_Util::MO_TYPE::VV, unit_factor);
 
             // gather AX and output
             for (int isk = 0;isk < s.nks;++isk)

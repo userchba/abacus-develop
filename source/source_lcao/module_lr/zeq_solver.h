@@ -189,11 +189,11 @@ namespace LR
     /// @brief Distributed dense Z-vector solve: the Hessian (`zvec_hessian_2d`) and the
     /// right-hand side are laid out 2D block-cyclically on the BLACS grid of `hm.pX[0]`, and
     /// `linear_solver` (`scalapack_linear_solver` or `scalapack_cholesky_linear_solver`)
-    /// solves them in place.
+    /// solves them in place, on LibDDLA when `hm.ddla` is a handle bound to that grid.
     template<typename T, typename THam>
     void solve_Z_2d(T* const Z, const T* const R, const int ld, const int nstates,
         THam& hm, const int nspin_x,
-        void (*linear_solver)(T*, T*, const BlockCyclicDistribution&, const BlockCyclicDistribution&))
+        void (*linear_solver)(const ModuleBase::DdlaContext*, T*, T*, const BlockCyclicDistribution&, const BlockCyclicDistribution&))
     {
         ModuleBase::TITLE("Z_vector", "solve_Z_2d");
         ModuleBase::timer::start("Z_vector", "solve_Z_2d");
@@ -227,7 +227,7 @@ namespace LR
             }
         }
 
-        linear_solver(h_loc.data(), z_loc.data(), ph, pz);
+        linear_solver(hm.ddla, h_loc.data(), z_loc.data(), ph, pz);
 
         // solution: 2D block-cyclic on pz -> pX layout
         std::vector<T> z_full(static_cast<std::size_t>(n_global) * nstates, T(0));

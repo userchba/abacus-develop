@@ -47,7 +47,7 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         // The imag part will be cancelled in the force calculation, so we use double DM(R) to calculate force.
         // But complex transition DM(R) is still used in energy density matrix calculation.
 #ifdef __MPI
-        const auto& dm_trans_k = cal_dm_trans_pblas(Xz.data<T>() + offset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
+        const auto& dm_trans_k = cal_dm_trans_pblas(inputs.ddla, Xz.data<T>() + offset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
 #else
         const auto& dm_trans_k = cal_dm_trans_blas(Xz.data<T>() + offset, c, inputs.nocc[ispin], nvirt_g[ispin]);
 #endif
@@ -57,9 +57,9 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         // non-symmetric D^X. Symmetrizing would give 1/2[(aa|ii)+(ai|ia)], which is wrong.
         // (`cal_force_exx_dm_trans` feeds the same tensor to both slots, so it is consistent.)
         auto dm_trans =   // D(X) complex
-            LR_Util::build_dm_from_dmk<T, T>(dm_trans_k,
+            LR_Util::build_dm_from_dmk<T, T>(inputs.ddla, dm_trans_k,
                 inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff);
-        LR_Util::transpose_DMR(dm_trans, inputs.pmat);
+        LR_Util::transpose_DMR(inputs.ddla, dm_trans, inputs.pmat);
         // D(X) real, for the grid Hxc force. The Coulomb kernel (mu nu | kappa lambda) is
         // symmetric within each index pair, so it only ever sees the symmetric part of D^X.
         // In `PulayForceStress::cal_pulay_fs`, `cal_gint_rho` (which builds v) symmetrizes
@@ -67,14 +67,14 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         // Passing an un-symmetrized D^X makes the two slots of the bilinear form disagree.
         // NOTE: `build_dm_from_dmk` symmetrizes `dm_trans_k` IN PLACE, hence the ordering.
         auto dm_trans_real =   // D(X), double (FIXME: not enough for periodic system!)
-            LR_Util::build_dm_from_dmk<T, double>(dm_trans_k,
+            LR_Util::build_dm_from_dmk<T, double>(inputs.ddla, dm_trans_k,
                 inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff,
                 /*symmetrize=*/true);
-        LR_Util::transpose_DMR(dm_trans_real, inputs.pmat);
+        LR_Util::transpose_DMR(inputs.ddla, dm_trans_real, inputs.pmat);
         // LR_Util::print_DMR(dm_trans, "dm_trans of istate " + std::to_string(istate));
         // difference density matrix
 #ifdef __MPI
-        std::vector<ct::Tensor> dm_diff_k = cal_dm_diff_pblas(Xz.data<T>() + offset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
+        std::vector<ct::Tensor> dm_diff_k = cal_dm_diff_pblas(inputs.ddla, Xz.data<T>() + offset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
 #else
         std::vector<ct::Tensor> dm_diff_k = cal_dm_diff_blas(Xz.data<T>() + offset, c, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin]);
 #endif
@@ -85,7 +85,7 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         // LR_Util::print_value(dm_diff_k[0].data<T>(), inputs.pmat.get_col_size(), inputs.pmat.get_row_size());
 
 #ifdef __MPI
-        const std::vector<ct::Tensor>& dm_relaxed_k = cal_dm_trans_pblas(Z.template data<T>() + zoffset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
+        const std::vector<ct::Tensor>& dm_relaxed_k = cal_dm_trans_pblas(inputs.ddla, Z.template data<T>() + zoffset, paraX_g[ispin], c, inputs.pc, inputs.nbasis, inputs.nocc[ispin], nvirt_g[ispin], inputs.pmat.para_2d());
 #else
         const std::vector<ct::Tensor>& dm_relaxed_k = cal_dm_trans_blas(Z.template data<T>() + zoffset, c, inputs.nocc[ispin], nvirt_g[ispin]);
 #endif
@@ -94,7 +94,7 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
 #ifdef __MPI
         for (auto& d: dm_relaxed_k)
         {
-            LR_Util::matsym(d.data<T>(), inputs.nbasis, inputs.pmat.para_2d());
+            LR_Util::matsym(inputs.ddla, d.data<T>(), inputs.nbasis, inputs.pmat.para_2d());
         } // symmetrize
 #else
         for (auto& d: dm_relaxed_k)
@@ -107,10 +107,10 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         // relaxed difference density matrix
         const std::vector<ct::Tensor>& relaxed_diff_dm_k = dm_diff_k + dm_relaxed_k;
         const module_dm::DensityMatrix<T, T>& diff_dm =
-            LR_Util::build_dm_from_dmk<T, T>(dm_diff_k,
+            LR_Util::build_dm_from_dmk<T, T>(inputs.ddla, dm_diff_k,
                 inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff);
         const module_dm::DensityMatrix<T, T>& relaxed_diff_dm =
-            LR_Util::build_dm_from_dmk<T, T>(relaxed_diff_dm_k,
+            LR_Util::build_dm_from_dmk<T, T>(inputs.ddla, relaxed_diff_dm_k,
                 inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff);
         // LR_Util::print_DMR(relaxed_diff_dm, "relaxed_diff_dm T+Z (Z symmetrized) of istate " + std::to_string(istate));
 
@@ -141,7 +141,7 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
         if (inputs.test_force && inputs.nocc[0] == 1 && nvirt_g[0] == 1)
         {
 #ifdef __MPI
-            const std::vector<ct::Tensor>& dm_diff = cal_dm_diff_pblas(Xz.data<T>() + offset, paraX_g[0], c, inputs.pc, inputs.nbasis, inputs.nocc[0], nvirt_g[0], inputs.pmat.para_2d());
+            const std::vector<ct::Tensor>& dm_diff = cal_dm_diff_pblas(inputs.ddla, Xz.data<T>() + offset, paraX_g[0], c, inputs.pc, inputs.nbasis, inputs.nocc[0], nvirt_g[0], inputs.pmat.para_2d());
 #else
             const std::vector<ct::Tensor>& dm_diff = cal_dm_diff_blas(Xz.data<T>() + offset, c, inputs.nbasis, inputs.nocc[0], nvirt_g[0]);
 #endif
@@ -149,7 +149,7 @@ std::vector<ModuleBase::matrix> evaluate_closed_shell_force(
             test_dm_diff_H2<T>(dm_diff[0].data<T>(), c, inputs.nbasis);
             test_edm_H2<T>(edm_k[0].data<T>(), inputs.eig_ks.c, c, inputs.nbasis);
         }
-        module_dm::DensityMatrix<T, double> edm_real = LR_Util::build_dm_from_dmk<T, double>(edm_k,
+        module_dm::DensityMatrix<T, double> edm_real = LR_Util::build_dm_from_dmk<T, double>(inputs.ddla, edm_k,
             inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff, /*symmetrize=*/true);
         // print edm_real (R)
         if (inputs.test_force)

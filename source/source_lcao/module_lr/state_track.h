@@ -7,6 +7,10 @@ class UnitCell;
 class Parallel_Orbitals;
 class BlockCyclicDistribution;
 class TwoCenterIntegrator;
+namespace ModuleBase
+{
+class DdlaContext;
+}
 namespace base_device
 {
 struct DEVICE_CPU;
@@ -49,6 +53,8 @@ struct RootInputs
     const BlockCyclicDistribution& pc;
     const Parallel_Orbitals& pmat;
     const std::vector<BlockCyclicDistribution>& px;
+    /// LibDDLA handle bound to the grid of pc/pmat/px, or null for ScaLAPACK
+    const ModuleBase::DdlaContext* ddla;
     const std::vector<int>& nocc;
     const std::vector<int>& nvirt;
     bool openshell;

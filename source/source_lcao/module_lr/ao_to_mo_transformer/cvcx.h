@@ -5,6 +5,10 @@
 #include <vector>
 #ifdef __MPI
 #include "source_base/block_cyclic_distribution.h"
+namespace ModuleBase
+{
+class DdlaContext;
+}
 #endif
 namespace LR
 {
@@ -33,6 +37,7 @@ namespace LR
 #ifdef __MPI
     template <typename T>
     void CVCX_occ_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<T, base_device::DEVICE_CPU>& c,
@@ -71,6 +76,7 @@ namespace LR
 #ifdef __MPI
     template <typename T>
     void CVCX_virt_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<T, base_device::DEVICE_CPU>& c,

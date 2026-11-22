@@ -14,6 +14,10 @@
 #include <set>
 
 class UnitCell;
+namespace ModuleBase
+{
+class DdlaContext;
+}
 
 using DAT = container::DataType;
 using DEV = container::DeviceType;
@@ -147,24 +151,27 @@ namespace LR_Util
     template<typename T>
     void matsym(T* inout, const int n);
 #ifdef __MPI
+    // The 2D block-cyclic versions transpose on LibDDLA when ddla is not null
+    // (a handle bound to the grid of pmat), otherwise on ScaLAPACK.
     template<typename T>
-    void matsym(const T* in, const int n, const BlockCyclicDistribution& pmat, T* out);
+    void matsym(const ModuleBase::DdlaContext* ddla, const T* in, const int n, const BlockCyclicDistribution& pmat, T* out);
     template<typename T>
-    void matsym(T* inout, const int n, const BlockCyclicDistribution& pmat);
+    void matsym(const ModuleBase::DdlaContext* ddla, T* inout, const int n, const BlockCyclicDistribution& pmat);
     template<typename T>
-    void mattrans(const T* in, const int n, const BlockCyclicDistribution& pmat, T* out);
+    void mattrans(const ModuleBase::DdlaContext* ddla, const T* in, const int n, const BlockCyclicDistribution& pmat, T* out);
     template<typename T>
-    void mattrans(T* inout, const int n, const BlockCyclicDistribution& pmat);
+    void mattrans(const ModuleBase::DdlaContext* ddla, T* inout, const int n, const BlockCyclicDistribution& pmat);
 
     // calculate (A-A^T)/2 (in-place version)
     template<typename T>
-    void matantisym(T* inout, const int n, const BlockCyclicDistribution& pmat);
+    void matantisym(const ModuleBase::DdlaContext* ddla, T* inout, const int n, const BlockCyclicDistribution& pmat);
 #endif
+    /// ddla: LibDDLA handle bound to the grid of pmat for the transpose, or null for ScaLAPACK
     template<typename T>
-    bool is_hermitian(const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank);
+    bool is_hermitian(const ModuleBase::DdlaContext* ddla, const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank);
 
     template<typename T>
-    bool is_symmetric(const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank);
+    bool is_symmetric(const ModuleBase::DdlaContext* ddla, const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank);
 
     ///===================Psi wrapper=================
     /// psi(nk=1, nbands=nb, nk * nbasis) -> psi(nb, nk, nbasis) without memory copy

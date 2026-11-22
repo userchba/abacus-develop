@@ -8,6 +8,11 @@
 
 #include "source_base/block_cyclic_distribution.h"
 
+namespace ModuleBase
+{
+class DdlaContext;
+}
+
 namespace BSE
 {
 template <typename T>
@@ -30,7 +35,9 @@ void arrayFlatten2(const std::vector<std::complex<double>>& A,
 /// @brief solve full BSE through matrix M = {{Re(A+B), Im(A-B)},{-Im(A+B), Re(A-B)}}
 /// @attention A_part and B_part will be destroyed (swapped with empty vectors)
 ///          after constructing M. Pass copies if the caller needs them afterwards.
-void solve_full(const int my_rank,
+/// @param ddla LibDDLA handle bound to the grid of pA/pM for the matrix products, or null for ScaLAPACK
+void solve_full(const ModuleBase::DdlaContext* ddla,
+                const int my_rank,
                 std::vector<std::complex<double>>& A_part,
                 std::vector<std::complex<double>>& B_part,
                 const BlockCyclicDistribution& pA,

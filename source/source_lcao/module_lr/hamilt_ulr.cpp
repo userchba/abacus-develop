@@ -32,7 +32,8 @@ HamiltULR<T>::HamiltULR(const std::string& xc_kernel,
     const K_Vectors& kv_in,
     const std::vector<BlockCyclicDistribution>& pX_in,   ///< {up, down}
     const BlockCyclicDistribution& pc_in,
-    const Parallel_Orbitals& pmat_in) :nocc(nocc), nvirt(nvirt), pX(pX_in)
+    const Parallel_Orbitals& pmat_in,
+    const ModuleBase::DdlaContext* ddla_in) :nocc(nocc), nvirt(nvirt), pX(pX_in), ddla(ddla_in)
 {
     nk = kv_in.get_nks() / nspin;
     ldim = nk * (pX[0].size() + pX[1].size());
@@ -52,7 +53,7 @@ HamiltULR<T>::HamiltULR(const std::string& xc_kernel,
     this->ops[3] = new OperatorLRDiag<T>(eig_ks.c + nk * (nocc[0] + nvirt[0]), pX_in[1], nk, nocc[1], nvirt[1], /*add_on=*/true);
 
     auto newHxc = [this, &nspin, &naos, &nocc, &nvirt, &psi_ks_in, &pot_in, &ucell_in, &orb_cutoff, &gd_in, &kv_in, &pX_in, &pc_in, &pmat_in](const int& sl, const int& sr) { return new OperatorLRHxc<T>(nspin, naos, nocc, nvirt, psi_ks_in,
-        *this->DM_trans, pot_in[sl], ucell_in, orb_cutoff, gd_in, kv_in, pX_in, pc_in, pmat_in, { sl,sr }, T(1.0), OperatorLRHxc<T>::MO_TO_AO_TYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc); };
+        *this->DM_trans, pot_in[sl], ucell_in, orb_cutoff, gd_in, kv_in, pX_in, pc_in, pmat_in, this->ddla, { sl,sr }, T(1.0), OperatorLRHxc<T>::MO_TO_AO_TYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc); };
     this->ops[0]->add(newHxc(0, 0));
     this->ops[1] = newHxc(0, 1);
     this->ops[2] = newHxc(1, 0);
@@ -67,7 +68,7 @@ HamiltULR<T>::HamiltULR(const std::string& xc_kernel,
             // this ground-state Casida operator defaults to MO_TO_AO_TYPE::CC_vo, which
             // never reads the force-only coxt_full/cvx_full buffers.
             this->ops[(is << 1) + is]->add(new OperatorLREXX<T>(nspin, naos, nocc[is], nvirt[is], ucell_in, psi_ks_spin[is],
-                *this->DM_trans, exx_lri_in, kv_in, pX_in[is], pc_in, pmat_in,
+                *this->DM_trans, exx_lri_in, kv_in, pX_in[is], pc_in, pmat_in, this->ddla,
                 /*cal_force=*/false,
                 (xc_kernel == "hf" ? 1.0 : exx_alpha), OperatorLREXX<T>::MO_TO_AO_TYPE::CC_vo, {}, hamilt::calculation_type::lr_dmtrans_exx));
         }
@@ -79,10 +80,10 @@ HamiltULR<T>::HamiltULR(const std::string& xc_kernel,
             const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks_in, is, nk);
             // LR_Util::print_value(X, pX_in[is].size());
 #ifdef __MPI
-            std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(X, pX[is], psi_ks_is, pc_in, naos, nocc[is], nvirt[is], pmat_in.para_2d(), (T)1.0 / (T)nk);
+            std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(this->ddla, X, pX[is], psi_ks_is, pc_in, naos, nocc[is], nvirt[is], pmat_in.para_2d(), (T)1.0 / (T)nk);
             if (this->tdm_sym)
                 for (auto& t: dm_trans_2d)
-                    LR_Util::matsym(t.data<T>(), naos, pmat_in.para_2d());
+                    LR_Util::matsym(this->ddla, t.data<T>(), naos, pmat_in.para_2d());
 #else
             std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_blas(X, psi_ks_is, nocc[is], nvirt[is], (T)1.0 / (T)nk);
             if (this->tdm_sym)

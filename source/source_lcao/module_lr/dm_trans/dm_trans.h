@@ -8,6 +8,10 @@
 #include <vector>
 #ifdef __MPI
 #include "source_base/block_cyclic_distribution.h"
+namespace ModuleBase
+{
+class DdlaContext;
+}
 #endif
 namespace LR
 {
@@ -15,8 +19,10 @@ namespace LR
 #ifdef __MPI
 /// @brief calculate the 2d-block transition density matrix in AO basis using p?gemm
 /// \f[ \tilde{\rho}_{\mu_j\mu_b}=\sum_{jb}c_{j,\mu_j}X_{jb}c^*_{b,\mu_b} \f]
+/// @param ddla LibDDLA handle bound to the grid of px/pc/pmat, or null for ScaLAPACK
     template<typename T>
     std::vector<container::Tensor> cal_dm_trans_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const T* const X_istate,
         const BlockCyclicDistribution& px,
         const psi::Psi<T>& c,

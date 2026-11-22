@@ -42,6 +42,71 @@ void gemm(const DdlaContext* ddla,
           T* C,
           const int* descC);
 
+//! C(ic:, jc:) = alpha * op(A(ia:, ja:)) * op(B(ib:, jb:)) + beta * C(ic:, jc:)
+//! on submatrices (PxGEMM convention with one-based offsets).
+//! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK; LibDDLA
+//! multiplies whole matrices, so an operand with an offset is first copied
+//! into a whole matrix with the same blocks on the same grid.
+template <typename T>
+void gemm(const DdlaContext* ddla,
+          const char transa,
+          const char transb,
+          const int m,
+          const int n,
+          const int k,
+          const typename Scalar<T>::type& alpha,
+          const T* A,
+          const int ia,
+          const int ja,
+          const int* descA,
+          const T* B,
+          const int ib,
+          const int jb,
+          const int* descB,
+          const typename Scalar<T>::type& beta,
+          T* C,
+          const int ic,
+          const int jc,
+          const int* descC);
+
+//! C = beta * C + alpha * op(A) with op 'T' (PxTRANU) or 'C' (PxTRANC).
+//! Runs on LibDDLA (as geadd) when ddla is not null, otherwise on ScaLAPACK
+//! PxTRANU / PxTRANC (PxTRAN for real T).
+template <typename T>
+void tran(const DdlaContext* ddla,
+          const char trans,
+          const int m,
+          const int n,
+          const typename Scalar<T>::type& alpha,
+          const T* A,
+          const int* descA,
+          const typename Scalar<T>::type& beta,
+          T* C,
+          const int* descC);
+
+//! Solve A X = B with an LU factorization (PxGESV); A (n x n) is overwritten
+//! by its factors and B (n x nrhs) by X. Returns the factorization's info
+//! (0 on success, > 0 when A is singular), the same on every rank.
+//! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK.
+template <typename T>
+int gesv(const DdlaContext* ddla, const int n, const int nrhs, T* A, const int* descA, T* B, const int* descB);
+
+//! Solve A X = B for a Hermitian positive-definite A with a Cholesky
+//! factorization (PxPOTRF + PxPOTRS) that reads the uplo triangle of A; A is
+//! overwritten by the factor and B (n x nrhs) by X. Returns the factorization's
+//! info (0 on success, > 0 when A is not positive definite; B is then left
+//! unchanged), the same on every rank.
+//! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK.
+template <typename T>
+int posv(const DdlaContext* ddla,
+         const char uplo,
+         const int n,
+         const int nrhs,
+         T* A,
+         const int* descA,
+         T* B,
+         const int* descB);
+
 //! C = beta * C + alpha * op(A) (PxGEADD convention).
 //! Runs on LibDDLA when ddla is not null, otherwise on ScaLAPACK.
 template <typename T>

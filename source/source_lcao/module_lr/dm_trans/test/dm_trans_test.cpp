@@ -196,7 +196,7 @@ TEST_F(DMTransTest, DoubleParallel)
                 {
                     X.fix_b(istate);
                     X_full.fix_b(istate);
-                    std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_trans_pblas(X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat, (double)1.0 / (double)s.nks, type);
+                    std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_trans_pblas(nullptr, X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat, (double)1.0 / (double)s.nks, type);
                     std::vector<container::Tensor> dm_gather(s.nks, container::Tensor(DAT::DT_DOUBLE, DEV::CpuDevice, { s.naos, s.naos }));
                     for (int isk = 0;isk < s.nks;++isk)
                     {
@@ -283,7 +283,7 @@ TEST_F(DMTransTest, ComplexParallel)
                 {
                     X.fix_b(istate);
                     X_full.fix_b(istate);
-                    std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_trans_pblas(X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat, std::complex<double>(1.0, 0.0) / (double)s.nks, type);
+                    std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_trans_pblas(nullptr, X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat, std::complex<double>(1.0, 0.0) / (double)s.nks, type);
                     std::vector<container::Tensor> dm_gather(s.nks, container::Tensor(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { s.naos, s.naos }));
                     for (int isk = 0;isk < s.nks;++isk)
                     {

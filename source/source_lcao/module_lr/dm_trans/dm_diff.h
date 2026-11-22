@@ -37,6 +37,7 @@ namespace LR
         std::complex<double>* CoXT);
 #ifdef __MPI
     void CvX(
+        const ModuleBase::DdlaContext* ddla,
         const double* C,
         const BlockCyclicDistribution& pc,
         const double* X,
@@ -47,6 +48,7 @@ namespace LR
         double* CvX,
         const BlockCyclicDistribution& pcx);
     void CvX(
+        const ModuleBase::DdlaContext* ddla,
         const std::complex<double>* C,
         const BlockCyclicDistribution& pc,
         const std::complex<double>* X,
@@ -57,6 +59,7 @@ namespace LR
         std::complex<double>* CvX,
         const BlockCyclicDistribution& pcx);
     void CoXT(
+        const ModuleBase::DdlaContext* ddla,
         const double* C,
         const BlockCyclicDistribution& pc,
         const double* X,
@@ -67,6 +70,7 @@ namespace LR
         double* CoXT,
         const BlockCyclicDistribution& pcxt);
     void CoXT(
+        const ModuleBase::DdlaContext* ddla,
         const std::complex<double>* C,
         const BlockCyclicDistribution& pc,
         const std::complex<double>* X,
@@ -83,6 +87,7 @@ namespace LR
 /// \f[ T=(C_v*X) * (C_v * X)^\dagger + (C_o*X^T) * (C_o*X^T)^\dagger \f]
     template<typename T>
     std::vector<container::Tensor> cal_dm_diff_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const T* const X_istate,
         const BlockCyclicDistribution& px,
         const psi::Psi<T, base_device::DEVICE_CPU>& c,

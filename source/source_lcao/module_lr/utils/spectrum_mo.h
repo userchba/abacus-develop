@@ -10,6 +10,10 @@ class TwoCenterBundle;
 class Parallel_Orbitals;
 class BlockCyclicDistribution;
 class K_Vectors;
+namespace ModuleBase
+{
+class DdlaContext;
+}
 namespace LR_Util
 {
 /// Compute C^dagger v C for the selected KS window; return replicated spin/cartesian/k blocks.
@@ -19,6 +23,7 @@ std::vector<std::complex<double>> cal_velocity_mo(const UnitCell& ucell,
                                                 const TwoCenterBundle& two_center_bundle,
                                                 const Parallel_Orbitals& pmat,/*nbasis×nbasis*/
                                                 const BlockCyclicDistribution& pc,/*nbasis×nbands*/
+                                                const ModuleBase::DdlaContext* ddla,/*null: ScaLAPACK*/
                                                 const K_Vectors& kv,
                                                 const psi::Psi<T>& psi_ks,
                                                 const int nk,

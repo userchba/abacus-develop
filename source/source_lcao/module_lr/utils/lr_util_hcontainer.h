@@ -225,7 +225,7 @@ namespace LR_Util
     // It already uses the ground-state DMR convention, including exp(+ik.R) for multi-k.
     // A physical transpose must therefore be applied to DMK, never by swapping atom pairs.
     template<typename TK>
-    void transpose_DMR(module_dm::DensityMatrix<TK, double>& dm, const Parallel_Orbitals& pv)
+    void transpose_DMR(const ModuleBase::DdlaContext* ddla, module_dm::DensityMatrix<TK, double>& dm, const Parallel_Orbitals& pv)
     {
         // 1. transpose dm(k)
         for (auto& dk : dm.get_dmk_vec())
@@ -233,7 +233,7 @@ namespace LR_Util
 #ifdef __MPI
             // dm(k) is 2D-block-cyclic distributed, so the transpose needs the PBLAS routine
             // `mattrans` (pdtran_/pztranc_) rather than a plain serial swap.
-            LR_Util::mattrans(dk.data(), pv.para_2d().nrglb(), pv.para_2d());
+            LR_Util::mattrans(ddla, dk.data(), pv.para_2d().nrglb(), pv.para_2d());
 #else
             // In a serial build the entire square AO matrix is local, in column-major order.
             const int n = pv.para_2d().nrglb();
@@ -253,14 +253,14 @@ namespace LR_Util
         dm.cal_dmr(-1);
     }
     template<typename TK>
-    void transpose_DMR(module_dm::DensityMatrix<TK, std::complex<double>>& dm, const Parallel_Orbitals& pv)
+    void transpose_DMR(const ModuleBase::DdlaContext* ddla, module_dm::DensityMatrix<TK, std::complex<double>>& dm, const Parallel_Orbitals& pv)
     {
         throw std::runtime_error("transpose_DMR is not implemented for complex DMR, due to the lack of minus-sign FT.");
         // 1. dm(k) dagger
         for (auto& dk : dm.get_dmk_vec())
         {
 #ifdef __MPI
-            LR_Util::mattrans(dk.data(), pv.para_2d().nrglb(), pv.para_2d());
+            LR_Util::mattrans(ddla, dk.data(), pv.para_2d().nrglb(), pv.para_2d());
 #else
             throw std::runtime_error("transpose_DMR requires MPI (PBLAS mattrans) for the 2D-block-cyclic dm(k) transpose.");
 #endif
@@ -271,7 +271,8 @@ namespace LR_Util
     }
 
     template<typename TK, typename TR>
-    module_dm::DensityMatrix<TK, TR> build_dm_from_dmk(const std::vector<ct::Tensor>& dmk,
+    module_dm::DensityMatrix<TK, TR> build_dm_from_dmk(const ModuleBase::DdlaContext* ddla,
+        const std::vector<ct::Tensor>& dmk,
         const Parallel_Orbitals& pmat,
         const int& nk,
         const std::vector<ModuleBase::Vector3<double>>& kvec_d,
@@ -288,7 +289,7 @@ namespace LR_Util
         if (symmetrize)
             for (int ik = 0; ik < nk; ++ik)
 #ifdef __MPI
-                LR_Util::matsym(dmk[ik].data<TK>(), pmat.para_2d().nrglb(), pmat.para_2d());
+                LR_Util::matsym(ddla, dmk[ik].data<TK>(), pmat.para_2d().nrglb(), pmat.para_2d());
 #else
                 LR_Util::matsym(dmk[ik].data<TK>(), pmat.para_2d().nrglb());
 #endif
@@ -309,7 +310,8 @@ namespace LR_Util
     /// density matrix all have two independent channels. `DensityMatrix` stores DMK as a flat
     /// `[nspin][nk]` array, so channel `is` starts at `is * nk`.
     template <typename TK, typename TR>
-    module_dm::DensityMatrix<TK, TR> build_dm_from_dmk_spin(const std::vector<std::vector<ct::Tensor>>& dmk,
+    module_dm::DensityMatrix<TK, TR> build_dm_from_dmk_spin(const ModuleBase::DdlaContext* ddla,
+        const std::vector<std::vector<ct::Tensor>>& dmk,
         const Parallel_Orbitals& pmat,
         const int& nk,
         const std::vector<ModuleBase::Vector3<double>>& kvec_d,
@@ -331,7 +333,7 @@ namespace LR_Util
                 for (int ik = 0; ik < nk; ++ik)
                 {
 #ifdef __MPI
-                    LR_Util::matsym(dmk[is][ik].data<TK>(), pmat.para_2d().nrglb(), pmat.para_2d());
+                    LR_Util::matsym(ddla, dmk[is][ik].data<TK>(), pmat.para_2d().nrglb(), pmat.para_2d());
 #else
                     LR_Util::matsym(dmk[is][ik].data<TK>(), pmat.para_2d().nrglb());
 #endif

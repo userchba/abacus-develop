@@ -25,6 +25,8 @@ namespace LR
         const std::vector<BlockCyclicDistribution>& pX_;
         const BlockCyclicDistribution& pc_;
         const Parallel_Orbitals& pmat_;
+        /// LibDDLA handle bound to the grid of pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* ddla_;
         const bool openshell_;
         std::vector<std::string> spintype_;
         /// cached aliases, read once here instead of at every call site below
@@ -48,6 +50,7 @@ namespace LR
             const std::vector<BlockCyclicDistribution>& pX,
             const BlockCyclicDistribution& pc,
             const Parallel_Orbitals& pmat,
+            const ModuleBase::DdlaContext* ddla,
             const bool openshell, const int output_precision, const std::string& output_directory);
 
         /// @brief calculate the electron density from the density matrix in 2d-block distribution

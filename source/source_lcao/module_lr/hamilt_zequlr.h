@@ -35,10 +35,11 @@ namespace LR
         ZeqULR(const std::vector<int>& nocc_in,
             const std::vector<int>& nvirt_in,
             const std::vector<BlockCyclicDistribution>& pX_in,
+            const ModuleBase::DdlaContext* ddla_in,
             const int nk_in,
             const int local_dimension,
             const int global_dimension)
-            : nocc(nocc_in), nvirt(nvirt_in), pX(pX_in), nk(nk_in),
+            : nocc(nocc_in), nvirt(nvirt_in), pX(pX_in), ddla(ddla_in), nk(nk_in),
             ldim(local_dimension), gdim(global_dimension),
             ops(4, nullptr)
         {
@@ -159,6 +160,8 @@ namespace LR
         const std::vector<int>& nocc;
         const std::vector<int>& nvirt;
         const std::vector<BlockCyclicDistribution>& pX;
+        /// LibDDLA handle bound to the grid of pX, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* const ddla = nullptr;
         const int nk = 1;
         const int ldim = 1;
         const int gdim = 1;

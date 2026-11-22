@@ -67,7 +67,7 @@ TEST(BSETest, skewSolver) {
     Cpxgemr2d(nA, nA, B_glb.data(), 1, 1, pA_glb.desc(),
         B_part.data(), 1, 1, pA.desc(),
         pA_glb.ictxt());
-    BSE::solve_full(my_rank, A_part, B_part, pA, pM, ev, v);
+    BSE::solve_full(nullptr, my_rank, A_part, B_part, pA, pM, ev, v);
     EXPECT_NEAR(ev[0], -6.127295611, 1e-8); 
     EXPECT_NEAR(ev[1], -2.299184312, 1e-8);
 }
@@ -159,7 +159,7 @@ TEST(BSETest, skewSolver2) {
     auto A_copy = A_part;
     auto B_copy = B_part;
     auto start = std::chrono::high_resolution_clock::now();
-    BSE::solve_full(my_rank, A_copy, B_copy, pA, pM, ev, v);
+    BSE::solve_full(nullptr, my_rank, A_copy, B_copy, pA, pM, ev, v);
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
     if (my_rank == 0){
@@ -247,7 +247,7 @@ TEST(BSETest, MissingDiagonalizationBackend)
     std::vector<std::complex<double>> v_full;
 
     EXPECT_EXIT(BSE::solve_tda(A, pA, ev, v_tda), ::testing::ExitedWithCode(1), "");
-    EXPECT_EXIT(BSE::solve_full(0, A_full, B_full, pA, pM, ev, v_full), ::testing::ExitedWithCode(1), "");
+    EXPECT_EXIT(BSE::solve_full(nullptr, 0, A_full, B_full, pA, pM, ev, v_full), ::testing::ExitedWithCode(1), "");
 }
 #endif
 

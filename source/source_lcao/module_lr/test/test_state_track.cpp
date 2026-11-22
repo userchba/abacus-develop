@@ -63,7 +63,7 @@ TEST(StateTrack, ClosedShellTripletIgnoresDownSpinVirtualRotation)
     const std::vector<double> cutoff{0.5};
     const std::vector<int> nocc{1, 1};
     const std::vector<int> nvirt{2, 2};
-    const LR::RootInputs<double> inputs{cell, cutoff, integrator, orbitals, pc, pmat, px,
+    const LR::RootInputs<double> inputs{cell, cutoff, integrator, orbitals, pc, pmat, px, nullptr,
         nocc, nvirt, false, 1, false};
     const std::vector<double> amplitudes{1, 0, 0, 1};
     const std::vector<double> energies{1, 2};

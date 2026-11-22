@@ -51,6 +51,7 @@ public:
               const std::vector<BlockCyclicDistribution>& pX_in,
               const BlockCyclicDistribution& pc_in,
               const Parallel_Orbitals& pmat_in,
+              const ModuleBase::DdlaContext* ddla_in,
               const std::vector<std::string>& spin_types_in,
               const std::string& tda,
               const bool bse_ri_hartree_in,
@@ -122,6 +123,8 @@ private:
     const std::vector<BlockCyclicDistribution>& pX; // for tda, also pY for full
     const BlockCyclicDistribution& pc;
     const Parallel_Orbitals& pmat;
+    /// LibDDLA handle bound to the grid of pX/pc/pmat/pA, or null for ScaLAPACK
+    const ModuleBase::DdlaContext* ddla;
     const std::vector<std::string>& spin_types; // singlet, triplet, and rpa, ipa(independent particle approx)
     const bool bse_ri_hartree;
     const bool bse_mem_save;

@@ -2,6 +2,10 @@
 #define ABACUS_LR_GRADIENT_INPUTS_H
 #include "lr_force.h"
 #include "source_lcao/module_lr/potentials/pot_hxc_lrtd.h"
+namespace ModuleBase
+{
+class DdlaContext;
+}
 namespace LR
 {
 // Explicit, borrowed inputs for one gradient evaluation. No solver ownership or caches.
@@ -15,6 +19,8 @@ struct GradientInputs
     const Parallel_Orbitals& pmat;
     const BlockCyclicDistribution& pc;
     const std::vector<BlockCyclicDistribution>& px;
+    /// LibDDLA handle bound to the grid of pmat/pc/px, or null for ScaLAPACK
+    const ModuleBase::DdlaContext* ddla;
     const psi::Psi<T>& psi_ks;
     const ModuleBase::matrix& eig_ks;
     const std::vector<int>& nocc;

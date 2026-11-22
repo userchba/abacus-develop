@@ -51,6 +51,7 @@ inline bool gs_is_hybrid(const std::string& dft_functional)
             const BlockCyclicDistribution& pX_in,
             const BlockCyclicDistribution& pc_in,
             const Parallel_Orbitals& pmat_in,
+            const ModuleBase::DdlaContext* ddla_in,
             const bool cal_force,
             const double& alpha,
             const MO_TO_AO_TYPE dm_pq_in,
@@ -58,7 +59,7 @@ inline bool gs_is_hybrid(const std::string& dft_functional)
             const hamilt::calculation_type cal_type_in)
             : nspin(nspin), naos(naos), nocc(nocc), nvirt(nvirt), nk(kv_in.get_nks() / nspin),
             psi_ks(psi_ks_in), DM_trans(DM_trans_in), exx_lri(exx_lri_in), kv(kv_in),
-            pX(pX_in), pc(pc_in), pmat(pmat_in), ucell(ucell_in), alpha(alpha), dm_pq_(dm_pq_in),
+            pX(pX_in), pc(pc_in), pmat(pmat_in), ddla_(ddla_in), ucell(ucell_in), alpha(alpha), dm_pq_(dm_pq_in),
             aims_nbasis(aims_nbasis)
         {
             ModuleBase::TITLE("OperatorLREXX", "OperatorLREXX");
@@ -120,6 +121,8 @@ inline bool gs_is_hybrid(const std::string& dft_functional)
         const BlockCyclicDistribution& pc;
         const BlockCyclicDistribution& pX;
         const Parallel_Orbitals& pmat;
+        /// LibDDLA handle bound to the grid of pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* ddla_ = nullptr;
 
         /// number of basis functions per type in the aims benchmark (empty for the normal case)
         const std::vector<int> aims_nbasis;
@@ -154,9 +157,9 @@ inline bool gs_is_hybrid(const std::string& dft_functional)
             {
                 c.fix_k(ik);
                 const int start = ik * pX.size();
-                CvX(c.get_pointer(), pc, x_istate + start, pX, naos, nocc, nvirt, cvx.data<T>(), pcx);
+                CvX(this->ddla_, c.get_pointer(), pc, x_istate + start, pX, naos, nocc, nvirt, cvx.data<T>(), pcx);
                 LR_Util::gather_2d_to_full(pcx, cvx.data<T>(), &cvx_full(ik, 0, 0), false, naos, nocc);
-                CoXT(c.get_pointer(), pc, x_istate + start, pX, naos, nocc, nvirt, coxt.data<T>(), pcxt);
+                CoXT(this->ddla_, c.get_pointer(), pc, x_istate + start, pX, naos, nocc, nvirt, coxt.data<T>(), pcxt);
                 LR_Util::gather_2d_to_full(pcxt, coxt.data<T>(), &coxt_full(ik, 0, 0), false, naos, nvirt);
             }
         }

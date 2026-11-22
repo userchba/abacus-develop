@@ -34,4 +34,16 @@ if(ENABLE_MPI)
     MODULE_LR_empty_blocks_mpi
     PROPERTIES PROCESSORS 4 TIMEOUT 60 ENVIRONMENT
                "OMP_NUM_THREADS=1;MKL_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+  if(ENABLE_DDLA)
+    # The same kernels also run on LibDDLA handles; check more grid shapes.
+    foreach(rank_count IN ITEMS 1 2 6)
+      add_test(NAME MODULE_LR_empty_blocks_np${rank_count}
+               COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${rank_count}
+                       $<TARGET_FILE:MODULE_LR_empty_blocks>)
+      set_tests_properties(
+        MODULE_LR_empty_blocks_np${rank_count}
+        PROPERTIES PROCESSORS ${rank_count} TIMEOUT 120 ENVIRONMENT
+                   "OMP_NUM_THREADS=1;MKL_NUM_THREADS=1;OPENBLAS_NUM_THREADS=1")
+    endforeach()
+  endif()
 endif()

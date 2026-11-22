@@ -39,11 +39,12 @@ namespace LR
             const std::vector<BlockCyclicDistribution>& pX,
             const BlockCyclicDistribution& pc,
             const Parallel_Orbitals& pmat,
+            const ModuleBase::DdlaContext* ddla,
             const std::string& spin_type,
             const std::string& in_dir,
             const std::string& out_dir,
             const std::string& dft_functional)
-            : HamiltLR<T>(nspin, nocc, nvirt, pX, kv, pmat)
+            : HamiltLR<T>(nspin, nocc, nvirt, pX, kv, pmat, ddla)
         {
             ModuleBase::TITLE("Z_vector_L", "Z_vector_L");
             LR_Util::initialize_DMR(*this->DM_trans, pmat, ucell, gd, orb_cutoff);
@@ -55,7 +56,7 @@ namespace LR
             // while `pot` is the already-doubled singlet potential, so $H^S=2K^S$ here needs 4.
             // The EXX line below is already $2\alpha$ and is consistent.
             hamilt::Operator<T>* op_hz = new OperatorLRHxc<T>(nspin, naos, nocc, nvirt, psi_ks,
-                *this->DM_trans, pot_hxc_gs, ucell, orb_cutoff, gd, kv, pX, pc, pmat,
+                *this->DM_trans, pot_hxc_gs, ucell, orb_cutoff, gd, kv, pX, pc, pmat, this->ddla,
                 { 0 }, 4.0, ATYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc);
             this->ops->add(op_hz);
 #ifdef __EXX
@@ -63,7 +64,7 @@ namespace LR
             {
                 // Z_vector_L only exists on the force-calculation path, so cal_force is always true here.
                 hamilt::Operator<T>* op_hz_exx = new OperatorLREXX<T>(nspin, naos, nocc[0], nvirt[0], ucell, psi_ks,
-                    *this->DM_trans, exx_lri, kv, pX[0], pc, pmat,
+                    *this->DM_trans, exx_lri, kv, pX[0], pc, pmat, this->ddla,
                     /*cal_force=*/true,
                     2.0 * exx_alpha, //alpha; H=2K when D is symmetrized
                     ATYPE_EXX::CC_vo, {}, hamilt::calculation_type::lr_dmtrans_exx);
@@ -74,9 +75,9 @@ namespace LR
                 {
                     const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks, is, this->nk);
 #ifdef __MPI
-                    std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(X, this->pX[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                    std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_pblas(this->ddla, X, this->pX[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
                     for (auto& t: dm_trans_2d)
-                        LR_Util::matsym(t.data<T>(), naos, pmat.para_2d());
+                        LR_Util::matsym(this->ddla, t.data<T>(), naos, pmat.para_2d());
 #else
                     std::vector<ct::Tensor>  dm_trans_2d = cal_dm_trans_blas(X, psi_ks_is, nocc[is], nvirt[is]);
                     for (auto& t: dm_trans_2d)
@@ -130,11 +131,12 @@ namespace LR
             const std::vector<BlockCyclicDistribution>& pX,
             const BlockCyclicDistribution& pc,
             const Parallel_Orbitals& pmat,
+            const ModuleBase::DdlaContext* ddla,
             const std::string& dft_functional,
             const int nk,
             const int local_dimension,
             const int global_dimension)
-            : ZeqULR<T>(nocc, nvirt, pX, nk, local_dimension, global_dimension),
+            : ZeqULR<T>(nocc, nvirt, pX, ddla, nk, local_dimension, global_dimension),
             naos_(naos), pc_(pc), pmat_(pmat), psi_ks_(psi_ks)
         {
             ModuleBase::TITLE("Z_vector_UL", "Z_vector_UL");
@@ -150,7 +152,7 @@ namespace LR
             auto newHxc = [this, &nspin, &naos, &nocc, &nvirt, &psi_ks, &pot_hxc_gs, &ucell, &orb_cutoff, &gd, &kv, &pX, &pc, &pmat](const int sl, const int sr)
                 {
                     return new OperatorLRHxc<T>(nspin, naos, nocc, nvirt, psi_ks,
-                        *this->DM_trans, pot_hxc_gs, ucell, orb_cutoff, gd, kv, pX, pc, pmat,
+                        *this->DM_trans, pot_hxc_gs, ucell, orb_cutoff, gd, kv, pX, pc, pmat, this->ddla,
                         { sl, sr }, T(2.0), ATYPE::CC_vo, hamilt::calculation_type::lr_dmtrans_hxc);
                 };
             this->ops[0]->add(newHxc(0, 0));
@@ -171,7 +173,7 @@ namespace LR
                 for (int is : {0, 1})
                 {
                     this->ops[(is << 1) + is]->add(new OperatorLREXX<T>(nspin, naos, nocc[is], nvirt[is],
-                        ucell, this->psi_ks_spin_[is], *this->DM_trans, exx_lri, kv, pX[is], pc, pmat,
+                        ucell, this->psi_ks_spin_[is], *this->DM_trans, exx_lri, kv, pX[is], pc, pmat, this->ddla,
                         /*cal_force=*/true, 2.0 * exx_alpha, ATYPE_EXX::CC_vo, {}, hamilt::calculation_type::lr_dmtrans_exx));
                 }
             }
@@ -183,11 +185,11 @@ namespace LR
         {
             const auto psi_ks_is = LR_Util::get_psi_spin(this->psi_ks_, is, this->nk);
 #ifdef __MPI
-            this->dm_buf_ = cal_dm_trans_pblas(X, this->pX[is], psi_ks_is, this->pc_,
+            this->dm_buf_ = cal_dm_trans_pblas(this->ddla, X, this->pX[is], psi_ks_is, this->pc_,
                 this->naos_, this->nocc[is], this->nvirt[is], this->pmat_.para_2d());
             for (auto& t: this->dm_buf_)
             {
-                LR_Util::matsym(t.template data<T>(), this->naos_, this->pmat_.para_2d());
+                LR_Util::matsym(this->ddla, t.template data<T>(), this->naos_, this->pmat_.para_2d());
             }
 #else
             this->dm_buf_ = cal_dm_trans_blas(X, psi_ks_is, this->nocc[is], this->nvirt[is]);

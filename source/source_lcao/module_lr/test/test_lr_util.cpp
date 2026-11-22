@@ -136,7 +136,7 @@ TEST_F(LRDMTest, LRTransposePreservesAtomIndices)
         }
         if (pass == 0)
         {
-            LR_Util::transpose_DMR(dm, *paraV);
+            LR_Util::transpose_DMR(nullptr, dm, *paraV);
         }
     }
 }

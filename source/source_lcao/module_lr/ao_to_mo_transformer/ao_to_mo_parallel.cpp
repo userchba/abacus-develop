@@ -1,6 +1,6 @@
 #ifdef __MPI
 #include "ao_to_mo.h"
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/tool_title.h"
 #include "source_lcao/module_lr/utils/lr_util.h"
 #include "source_lcao/module_lr/utils/lr_util_print.h"
@@ -11,6 +11,7 @@ namespace LR
     // X: nvirt*nocc in para2d, nocc*nvirt in psi (row-para and constructed: nvirt)
     template<>
     void ao_to_mo_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& mat_ao,
         const BlockCyclicDistribution& pmat_ao,
         const psi::Psi<double>& coeff,
@@ -56,7 +57,7 @@ namespace LR
             char transb = 'N';
             const double alpha = 1.0;
             const double beta = add_on ? 1.0 : 0.0;
-            ScalapackConnector::gemm(transa, transb, naos, nmo1, naos,
+            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, nmo1, naos,
                 alpha, mat_ao[isk].data<double>(), i1, i1, pmat_ao.desc(),
                 coeff.get_pointer(), i1, imo1, pcoeff.desc(),
                 beta, Vc.data<double>(), i1, i1, pVc.desc());
@@ -64,7 +65,7 @@ namespace LR
             transa = 'T';
             // mat_mo = c ^ TVc
             // descC puts M(nvirt) to row
-            ScalapackConnector::gemm(transa, transb, nmo2, nmo1, naos,
+            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, nmo2, nmo1, naos,
                 factor, coeff.get_pointer(), i1, imo2, pcoeff.desc(),
                 Vc.data<double>(), i1, i1, pVc.desc(),
                 beta, mat_mo_data + start, i1, i1, pmat_mo.desc());
@@ -74,6 +75,7 @@ namespace LR
 
     template<>
     void ao_to_mo_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& mat_ao,
         const BlockCyclicDistribution& pmat_ao,
         const psi::Psi<std::complex<double>>& coeff,
@@ -119,7 +121,7 @@ namespace LR
             char transb = 'N';
             const std::complex<double> alpha(1.0, 0.0);
             const std::complex<double> beta = add_on ? std::complex<double>(1.0, 0.0) : std::complex<double>(0.0, 0.0);
-            ScalapackConnector::gemm(transa, transb, naos, nmo1, naos,
+            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, nmo1, naos,
                 alpha, mat_ao[isk].data<std::complex<double>>(), i1, i1, pmat_ao.desc(),
                 coeff.get_pointer(), i1, imo1, pcoeff.desc(),
                 beta, Vc.data<std::complex<double>>(), i1, i1, pVc.desc());
@@ -127,7 +129,7 @@ namespace LR
             transa = 'C';
             // mat_mo = c ^ TVc
             // descC puts M(nvirt) to row
-            ScalapackConnector::gemm(transa, transb, nmo2, nmo1, naos,
+            ModuleBase::ddla_linalg::gemm(ddla, transa, transb, nmo2, nmo1, naos,
                 factor, coeff.get_pointer(), i1, imo2, pcoeff.desc(),
                 Vc.data<std::complex<double>>(), i1, i1, pVc.desc(),
                 beta, mat_mo_data + start, i1, i1, pmat_mo.desc());

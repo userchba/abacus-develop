@@ -170,7 +170,7 @@ TEST_F(DMDiffTest, DoubleParallel)
             X.fix_b(istate);
             X_full.fix_b(istate);
 
-            std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_diff_pblas(X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat);
+            std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_diff_pblas(nullptr, X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat);
 
             // gather dm and output
             std::vector<container::Tensor> dm_gather(s.nks, container::Tensor(DAT::DT_DOUBLE, DEV::CpuDevice, { s.naos, s.naos }));
@@ -236,7 +236,7 @@ TEST_F(DMDiffTest, ComplexParallel)
             X.fix_b(istate);
             X_full.fix_b(istate);
 
-            std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_diff_pblas(X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat);
+            std::vector<container::Tensor> dm_pblas_loc = LR::cal_dm_diff_pblas(nullptr, X.get_pointer(), px, c, pc, s.naos, s.nocc, s.nvirt, pmat);
 
             // gather dm and output
             std::vector<container::Tensor> dm_gather(s.nks, container::Tensor(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { s.naos, s.naos }));

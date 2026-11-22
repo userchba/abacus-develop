@@ -15,6 +15,7 @@ class BlockCyclicDistribution;
 namespace ModuleBase
 {
 class matrix;
+class DdlaContext;
 }
 namespace module_dm
 {
@@ -51,7 +52,8 @@ namespace LR
             const K_Vectors& kv_in,
             const std::vector<BlockCyclicDistribution>& pX_in,   ///< {up, down}
             const BlockCyclicDistribution& pc_in,
-            const Parallel_Orbitals& pmat_in);
+            const Parallel_Orbitals& pmat_in,
+            const ModuleBase::DdlaContext* ddla_in);
         ~HamiltULR();
         void hPsi(const T* const psi_in, T* const hpsi, const int ld_psi, const int& nband) const;
         std::vector<T> matrix() const;
@@ -61,7 +63,8 @@ namespace LR
         const std::vector<int>& nvirt;
 
         const std::vector<BlockCyclicDistribution>& pX;
-
+        /// LibDDLA handle bound to the grid of pX/pc/pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* const ddla = nullptr;
 
         int nk = 1;
         int ldim = 1;

@@ -100,7 +100,7 @@ void ModuleESolver::ESolver_LR<T, TR>::follow_target_state_(std::ofstream& ofs)
     const TwoCenterIntegrator& overlap_integrator = *this->tcb().overlap_orb;
     const bool reference_first = LR_Util::tolower(this->inp_->lr_degen_mode) == "jt";
     const LR::RootInputs<T> inputs{*this->ucell_, this->orb_cutoff_, overlap_integrator,
-        *this->psi_ks, this->paraC_, this->paraMat_, this->paraX_, this->nocc, this->nvirt, this->openshell, this->target_is_, reference_first};
+        *this->psi_ks, this->paraC_, this->paraMat_, this->paraX_, this->lr_ddla_, this->nocc, this->nvirt, this->openshell, this->target_is_, reference_first};
     const int energy_offset = channel * this->nstates;
     std::vector<double> energies(this->nstates);
     std::copy_n(this->pelec->ekb.c + energy_offset, this->nstates, energies.begin());

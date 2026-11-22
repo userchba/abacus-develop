@@ -61,6 +61,7 @@ void RPA_LRI<T, Tdata>::out_velocity(const UnitCell& ucell,
                                                                                    two_center_bundle,
                                                                                    parav,
                                                                                    parac,
+                                                                                   nullptr, // ScaLAPACK
                                                                                    *this->p_kv,
                                                                                    psi,
                                                                                    nk,

@@ -1,4 +1,5 @@
 #include "hamilt_bse_solver.h"
+#include "source_base/module_external/ddla_linalg.h"
 
 namespace BSE
 {
@@ -105,7 +106,8 @@ void arrayFlatten2(const std::vector<std::complex<double>>& A,
 #endif
 }
 
-void solve_full(const int my_rank,
+void solve_full(const ModuleBase::DdlaContext* ddla,
+                const int my_rank,
                 std::vector<std::complex<double>>& A_part,
                 std::vector<std::complex<double>>& B_part,
                 const BlockCyclicDistribution& pA,
@@ -199,7 +201,7 @@ void solve_full(const int my_rank,
     ModuleBase::TITLE("HamiltBSE", "elpa_solve_full4");
     std::vector<double> UJ (pM.size(), 0.0);
 
-    ScalapackConnector::gemm('N', 'N', n, n, n, 1.0,
+    ModuleBase::ddla_linalg::gemm(ddla, 'N', 'N', n, n, n, 1.0,
         M.data(), 1, 1, pM.desc(),
         J.data(), 1, 1, pM.desc(),
         0.0,
@@ -211,7 +213,7 @@ void solve_full(const int my_rank,
     //             pM.blacs_ctxt);    
     //if (my_rank == 0) {std::cout<<"UJ:"<<std::endl; printM( global_UJ, n, n, "M", "M" );}
 
-    ScalapackConnector::gemm('N', 'T', n, n, n, 1.0,
+    ModuleBase::ddla_linalg::gemm(ddla, 'N', 'T', n, n, n, 1.0,
         UJ.data(), 1, 1, pM.desc(),
         M.data(), 1, 1, pM.desc(),
         0.0,
@@ -267,12 +269,12 @@ void solve_full(const int my_rank,
 
     // 6.2: LzΩ^(-1/2), combine real and imaginary part
     ModuleBase::TITLE("HamiltBSE", "elpa_solve_full6.2");
-    ScalapackConnector::gemm('T', 'N', n, n, n, 1.0,
+    ModuleBase::ddla_linalg::gemm(ddla, 'T', 'N', n, n, n, 1.0,
         M.data(), 1, 1, pM.desc(),
         z.data(), 1, 1, pM.desc(),
         0.0,
         Lz_real.data(), 1, 1, pM.desc());
-    ScalapackConnector::gemm('T', 'N', n, n, n, 1.0,
+    ModuleBase::ddla_linalg::gemm(ddla, 'T', 'N', n, n, n, 1.0,
         M.data(), 1, 1, pM.desc(),
         z.data() + pM.size(), 1, 1, pM.desc(),
         0.0,
@@ -318,10 +320,10 @@ void solve_full(const int my_rank,
     MPI_Barrier(MPI_COMM_WORLD);
     // 6.3: v=SQLzΩ^{-1/2}
     ModuleBase::TITLE("HamiltBSE", "elpa_solve_full6.3");
-    ScalapackConnector::gemm('N', 'N', n, n, n, 1.0,
+    ModuleBase::ddla_linalg::gemm(ddla, 'N', 'N', n, n, n, std::complex<double>(1.0, 0.0),
         SQ.data(), 1, 1, pM.desc(),
         Lz.data(), 1, 1, pM.desc(),
-        0.0,
+        std::complex<double>(0.0, 0.0),
         v.data(), 1, 1, pM.desc());
 
     elpa_deallocate(elpaInstance, &status);
@@ -329,6 +331,7 @@ void solve_full(const int my_rank,
     ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "elpa_solve_full");
     ModuleBase::timer::end("HamiltBSE", "elpa_solve_full");
 #else
+    (void)ddla;
     (void)my_rank;
     (void)A_part;
     (void)B_part;

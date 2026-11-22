@@ -213,7 +213,7 @@ TEST_F(AXTest, DoubleParallel)
             X_full.fix_b(istate);
             AX_pblas_loc.fix_b(istate);
             AX_gather.fix_b(istate);
-            LR::CVCX_occ_pblas(V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
+            LR::CVCX_occ_pblas(nullptr, V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
             AX_gather.zero_out();
             // gather AX and output
             for (int isk = 0;isk < s.nks;++isk)
@@ -248,7 +248,7 @@ TEST_F(AXTest, DoubleParallel)
             X_full.fix_b(istate);
             AX_pblas_loc.fix_b(istate);
             AX_gather.fix_b(istate);
-            LR::CVCX_virt_pblas(V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
+            LR::CVCX_virt_pblas(nullptr, V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
             AX_gather.zero_out();
             for (int isk = 0;isk < s.nks;++isk)
             {
@@ -315,7 +315,7 @@ TEST_F(AXTest, ComplexParallel)
             X_full.fix_b(istate);
             AX_pblas_loc.fix_b(istate);
             AX_gather.fix_b(istate);
-            LR::CVCX_occ_pblas(V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
+            LR::CVCX_occ_pblas(nullptr, V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
             AX_gather.zero_out();
 
             // gather AX and output
@@ -350,7 +350,7 @@ TEST_F(AXTest, ComplexParallel)
             X_full.fix_b(istate);
             AX_pblas_loc.fix_b(istate);
             AX_gather.fix_b(istate);
-            LR::CVCX_virt_pblas(V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
+            LR::CVCX_virt_pblas(nullptr, V, pV, c, pc, X.get_pointer(), px, s.naos, s.nocc, s.nvirt, AX_pblas_loc.get_pointer(), false);
             AX_gather.zero_out();
             for (int isk = 0;isk < s.nks;++isk)
             {

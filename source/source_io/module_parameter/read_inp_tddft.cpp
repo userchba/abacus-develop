@@ -1387,6 +1387,33 @@ The threshold proposes candidates; it cannot tell a true degeneracy from an acci
         this->add_item(item);
     }
     {
+        Input_Item item("lr_la_backend");
+        item.domain.set_choices({"default", "ddla"});
+        item.annotation = "distributed linear algebra backend of LR-TDDFT and BSE";
+        item.category = "Linear Response TDDFT";
+        item.type = "String";
+        item.description = R"(Library used for the distributed dense matrix operations of LR-TDDFT and BSE (esolver_type `lr` or `ks-lr`): the AO-MO transformations, transition and difference density matrices, transposes, the gradient terms, the `scalapack`/`scalapack_chol` Z-vector solves of `lr_grad_solver`, state tracking, and the BSE matrix products.
+* `default`: ScaLAPACK.
+* `ddla`: LibDDLA on the same block-cyclic process grid. Requires ABACUS built with `-DENABLE_DDLA=ON`. With `device=gpu`, LibDDLA must be built with GPU support and every MPI process needs its own GPU; each rank's local blocks are copied to its GPU for every operation.
+
+[NOTE] Redistributions between block-cyclic layouts (p?gemr2d) and the eigensolvers (`lr_solver`, ELPA in BSE) are not affected.)";
+        item.default_value = "default";
+        item.unit = "";
+        item.check_value = [](const Input_Item& item, const Parameter& para) {
+            if (para.input.lr_la_backend != "ddla")
+            {
+                return;
+            }
+#ifndef __DDLA
+            ModuleBase::WARNING_QUIT("ReadInput",
+                                     "lr_la_backend is set to ddla, but ABACUS is not built with LibDDLA support.\n"
+                                     " Please rebuild ABACUS with -DENABLE_DDLA=ON or set lr_la_backend to default.");
+#endif
+        };
+        read_sync_string(input.lr_la_backend);
+        this->add_item(item);
+    }
+    {
         Input_Item item("lr_target_spin");
         item.annotation = "spin channel of lr_target_state: singlet, triplet or updown";
         item.category = "Linear Response TDDFT";

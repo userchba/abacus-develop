@@ -11,6 +11,11 @@
 #include "source_base/block_cyclic_distribution.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
 #include <RI/global/Tensor.h>
+
+namespace ModuleBase
+{
+class DdlaContext;
+}
 #include <array>
 #include <map>
 namespace BSE_Util
@@ -72,8 +77,10 @@ using DAT_ENUM = container::DataTypeToEnum<T>;
 #ifdef __MPI
 /// @brief calculate the 2d-block transition density matrix in AO basis
 /// \f[ \tilde{\rho}_{\mu\mu}=c_{j,\mu}c^*_{b,\nu} \f]
+/// @param ddla LibDDLA handle bound to the grid of pc/pmat, or null for ScaLAPACK
 template<typename T>
 container::Tensor cal_dm_trans_onebase_pblas(
+    const ModuleBase::DdlaContext* ddla,
     const psi::Psi<T>& c,
     const BlockCyclicDistribution& pc,
     const int& ik,

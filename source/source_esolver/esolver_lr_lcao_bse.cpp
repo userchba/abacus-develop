@@ -171,6 +171,8 @@ void ESolver_BSE<T, TR>::runner(BaseCell& basecell, const int istep)
 
     ModuleBase::TITLE("ESolver_BSE", "runner");
     ModuleBase::timer::start("ESolver_BSE", "runner");
+    // LibDDLA handle for lr_la_backend ddla, on the AO grid every BSE matrix shares
+    this->bind_lr_ddla_();
     //allocate 2-particle state and setup 2d division
     this->allocate_eigen_infos();
 
@@ -197,7 +199,7 @@ void ESolver_BSE<T, TR>::runner(BaseCell& basecell, const int istep)
             BSE::HamiltBSE<T> bse_matrix(this->nspin, this->nbasis, this->nocc, this->nvirt, *this->ucell_,
                                     this->orb_cutoff_, this->gd(), *this->psi_ks, *this->psi_ks_global, this->eig_gw,
                                     *this->mo_lri,
-                                    this->pot[0], this->kv, this->paraX_, this->paraC_, this->paraMat_,
+                                    this->pot[0], this->kv, this->paraX_, this->paraC_, this->paraMat_, this->lr_ddla_,
                                     this->inp_->bse_spin_types,
                                     this->inp_->bse_tda,
                                     this->inp_->bse_ri_hartree,
@@ -510,7 +512,7 @@ void ESolver_BSE<T, TR>::after_all_runners(BaseCell& basecell)
             {
                 const int nspin_tmp = this->inp_->nspin == 2 ? 2 : 1;
                 this->velocity_mo = LR_Util::cal_velocity_mo(*this->ucell_, this->gd(), this->tcb(),
-                                                            this->paraMat_, this->paraC_, this->kv, *this->psi_ks,
+                                                            this->paraMat_, this->paraC_, this->lr_ddla_, this->kv, *this->psi_ks,
                                                             this->nk, nspin_tmp, this->nbasis, this->nocc, this->nvirt);
             }
             if (this->inp_->bse_tda == "both" || this->inp_->bse_tda == "tda")
@@ -519,7 +521,7 @@ void ESolver_BSE<T, TR>::after_all_runners(BaseCell& basecell)
                 {
                     LR::LR_Spectrum<T> spectrum(this->nspin, this->nbasis, this->nocc, this->nvirt, *this->pw_rho, *this->psi_ks,
                                                 *this->ucell_, this->kv, this->kv.wk, this->gd(), this->orb_cutoff_, this->tcb(),
-                                                this->paraX_, this->paraC_, this->paraMat_,
+                                                this->paraX_, this->paraC_, this->paraMat_, this->lr_ddla_,
                                                 &this->tda_ene[is * this->nstates], this->eig_ks.c,
                                                 this->X[is].template data<T>(), this->nstates, false/*openshell*/,
                                                 LR_Util::tolower(this->inp_->abs_gauge), GlobalV::MY_RANK, output_dir);
@@ -550,7 +552,7 @@ void ESolver_BSE<T, TR>::after_all_runners(BaseCell& basecell)
                 {
                     LR::LR_Spectrum<T> spectrum(this->nspin, this->nbasis, this->nocc, this->nvirt, *this->pw_rho, *this->psi_ks,
                                                 *this->ucell_, this->kv, this->kv.wk, this->gd(), this->orb_cutoff_, this->tcb(),
-                                                this->paraX_, this->paraC_, this->paraMat_,
+                                                this->paraX_, this->paraC_, this->paraMat_, this->lr_ddla_,
                                                 &this->full_ene[is * this->nstates], this->eig_ks.c,
                                                 this->full_X[is].template data<T>(), this->nstates, false/*openshell*/,
                                                 LR_Util::tolower(this->inp_->abs_gauge), GlobalV::MY_RANK, output_dir);

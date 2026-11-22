@@ -40,13 +40,14 @@ namespace LR
             const std::vector<BlockCyclicDistribution>& pX_in,
             const BlockCyclicDistribution& pc_in,
             const Parallel_Orbitals& pmat_in,
+            const ModuleBase::DdlaContext* ddla_in,
             const std::vector<int>& ispin_ks,
             const T factor_in,
             const MO_TO_AO_TYPE dm_pq_in,
             const hamilt::calculation_type cal_type_in)
             : nspin(nspin), naos(naos), nocc(nocc), nvirt(nvirt), nk(kv_in.get_nks() / nspin), psi_ks(psi_ks_in),
             DM_trans(DM_trans_in), pot(pot_in), ucell(ucell_in), orb_cutoff_(orb_cutoff), gd(gd_in),
-            kv(kv_in), pX(pX_in), pc(pc_in), pmat(pmat_in), ispin_ks(ispin_ks),
+            kv(kv_in), pX(pX_in), pc(pc_in), pmat(pmat_in), ddla_(ddla_in), ispin_ks(ispin_ks),
             factor_(factor_in), dm_pq_(dm_pq_in)
         {
           ModuleBase::TITLE("OperatorLRHxc", "OperatorLRHxc");
@@ -99,6 +100,8 @@ namespace LR
         const BlockCyclicDistribution& pc;
         const std::vector<BlockCyclicDistribution>& pX; // output vector, OV/OO/VV
         const Parallel_Orbitals& pmat;
+        /// LibDDLA handle bound to the grid of pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* ddla_ = nullptr;
 
         std::weak_ptr<PotLRBase> pot;
 

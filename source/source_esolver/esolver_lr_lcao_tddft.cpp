@@ -64,6 +64,9 @@ void ModuleESolver::ESolver_LR<T, TR>::runner(BaseCell& basecell, const int iste
         }
     }
 
+    // LibDDLA handle for lr_la_backend ddla, on the AO grid every LR matrix shares
+    this->bind_lr_ddla_();
+
     //allocate 2-particle state and setup 2d division
     this->setup_eigenvectors_X();
     this->pelec->ekb.create(nspin, this->nstates);
@@ -133,7 +136,8 @@ void ModuleESolver::ESolver_LR<T, TR>::runner(BaseCell& basecell, const int iste
                               this->kv,
                               this->paraX_,
                               this->paraC_,
-                              this->paraMat_);
+                              this->paraMat_,
+                              this->lr_ddla_);
             LR::HSolver::solve(hulr, this->X[0].template data<T>(), nloc_per_state, nstates,
                                this->nk, this->nocc, this->nvirt, this->paraX_,
                                this->pelec->ekb.c, this->inp_->lr_solver,
@@ -169,6 +173,7 @@ void ModuleESolver::ESolver_LR<T, TR>::runner(BaseCell& basecell, const int iste
                                 this->paraX_,
                                 this->paraC_,
                                 this->paraMat_,
+                                this->lr_ddla_,
                                 spin_types[is],
                                 this->in_dir,
                                 this->out_dir,
@@ -267,7 +272,7 @@ void ModuleESolver::ESolver_LR<T, TR>::after_all_runners(BaseCell& basecell)
     {
         LR_Density<T> lr_density(*this->ucell_, kv, gd(), *psi_ks, orb_cutoff_, pgrid(),
             nspin, nocc, nvirt, nbasis,
-            paraX_, paraC_, paraMat_, openshell, this->inp_->out_chg[1], this->out_dir);
+            paraX_, paraC_, paraMat_, this->lr_ddla_, openshell, this->inp_->out_chg[1], this->out_dir);
 
         if (openshell)
         {
@@ -295,7 +300,7 @@ void ModuleESolver::ESolver_LR<T, TR>::after_all_runners(BaseCell& basecell)
     {
         const int nspin_tmp = this->inp_->nspin == 2 ? 2 : 1;
         this->velocity_mo = LR_Util::cal_velocity_mo(*this->ucell_, this->gd(), this->tcb(),
-                                                    this->paraMat_, this->paraC_, this->kv, *this->psi_ks, 
+                                                    this->paraMat_, this->paraC_, this->lr_ddla_, this->kv, *this->psi_ks, 
                                                     this->nk, nspin_tmp, this->nbasis, this->nocc, this->nvirt);
     }
     std::vector<double> freq;
@@ -324,7 +329,7 @@ void ModuleESolver::ESolver_LR<T, TR>::after_all_runners(BaseCell& basecell)
         {
             LR_Spectrum<T> spectrum(nspin, this->nbasis, this->nocc, this->nvirt, *this->pw_rho, *this->psi_ks,
                 *this->ucell_, this->kv, spatial_weights, this->gd(), this->orb_cutoff_, this->tcb(),
-                this->paraX_, this->paraC_, this->paraMat_,
+                this->paraX_, this->paraC_, this->paraMat_, this->lr_ddla_,
                 &this->pelec->ekb.c[is * nstates], this->eig_ks.c, this->X[is].template data<T>(), nstates, openshell,
                 LR_Util::tolower(this->inp_->abs_gauge), this->my_rank_, this->out_dir);
             if (LR_Util::tolower(this->inp_->abs_gauge) == "velocity" ) {spectrum.set_vmo(this->velocity_mo.data());}

@@ -128,7 +128,7 @@ template<typename T, typename TR>
 LR::GradientInputs<T> ModuleESolver::ESolver_LR<T, TR>::gradient_inputs_() const
 {
     return { *this->ucell_, this->kv, this->gd(), this->orb_cutoff_, this->paraMat_,
-        this->paraC_z_, this->paraX_z_, *this->psi_ks_z_, this->eig_ks_z_, this->nocc,
+        this->paraC_z_, this->paraX_z_, this->lr_ddla_, *this->psi_ks_z_, this->eig_ks_z_, this->nocc,
         this->nvirt_z_, this->nspin, this->nk, this->nbasis, this->nloc_per_state_z_,
         this->xc_kernel, this->inp_->dft_functional, this->inp_->ks_solver,
         this->inp_->test_force, this->excited_relax_, this->out_dir, this->my_rank_,

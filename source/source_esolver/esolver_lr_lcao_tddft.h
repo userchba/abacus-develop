@@ -241,6 +241,17 @@ namespace ModuleESolver
         /// @brief variables for parallel distribution of matrix in AO representation
         Parallel_Orbitals paraMat_;
         Parallel_Orbitals paraMat_all_; // for the parallelized size of the KS orbitals
+#ifdef __DDLA
+        /// LibDDLA handle on the grid of paraMat_ (input lr_la_backend ddla), kept for the whole
+        /// run; declared after the distributions so that it is released first.
+        ModuleBase::DdlaContext lr_ddla_ctx_;
+#endif
+        /// Handle the distributed LR/BSE matrix operations run on: `&lr_ddla_ctx_` once
+        /// `bind_lr_ddla_` has bound it, null for the default ScaLAPACK.
+        const ModuleBase::DdlaContext* lr_ddla_ = nullptr;
+        /// With lr_la_backend ddla, bind `lr_ddla_ctx_` to the grid of paraMat_ (a GPU handle with
+        /// device gpu) and point `lr_ddla_` at it. Collective; rebinding to the same grid is a no-op.
+        void bind_lr_ddla_();
 
 
         LCAO_Orbitals orb_; ///< numerical atomic orbital data for single-point evaluation

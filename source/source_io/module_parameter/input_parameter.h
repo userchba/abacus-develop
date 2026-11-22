@@ -413,6 +413,7 @@ struct Input_para
     int nvirt = 1;                              ///< the number of virtual orbitals to form the 2-particle basis (nocc + nvirt <= nbands)
     std::string xc_kernel = "LDA";              ///< exchange correlation (XC) kernel for LR-TDDFT
     std::string lr_solver = "dav";              ///< the eigensolver for LR-TDDFT
+    std::string lr_la_backend = "default";      ///< LR-TDDFT/BSE distributed linear algebra: default or ddla
     double lr_thr = 1e-2;                       ///< convergence threshold of the LR-TDDFT eigensolver
     bool out_wfc_lr = false;                    ///< whether to output the eigenvectors (excitation amplitudes) in the particle-hole basis
     bool lr_unrestricted = false;               ///< whether to use the unrestricted construction for LR-TDDFT

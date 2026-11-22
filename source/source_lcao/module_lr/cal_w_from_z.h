@@ -13,14 +13,14 @@
 #ifdef __EXX
 #include "source_lcao/module_lr/operator_casida/operator_lr_exx.h"
 #endif
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/blas_connector.h"
 
 namespace LR
 {
     // $\sum_a X^*_{ai} X_{aj}(\Omega - \epsilon_a)$
     template<typename T>
-    void add_ediff_term(T* const inout,
+    void add_ediff_term(const ModuleBase::DdlaContext* ddla, T* const inout,
         const T* const X,
         const double eig_ext_istate,
         const double* const eig_ks,
@@ -50,11 +50,12 @@ namespace LR
             // 2. matrix multiplication (parallel)
 #ifdef __MPI
             const int i1 = 1;
-            ScalapackConnector::gemm('C', 'N', nocc, nocc, nvirt,
+            ModuleBase::ddla_linalg::gemm(ddla, 'C', 'N', nocc, nocc, nvirt,
                 T(1.0), X + x_start_k, i1, i1, px.desc(),
                 wX.data(), i1, i1, px.desc(),
                 T(1.0)/*add-on*/, inout + inout_start_k, i1, i1, p_occ_occ.desc());
 #else
+            (void)ddla;
             BlasConnector::gemm_cm('C', 'N', nocc, nocc, nvirt,
                 T(1.0), X + x_start_k, nvirt,
                 wX.data(), nvirt,
@@ -107,12 +108,12 @@ namespace LR
         // 1. 0.5$H_ij[T+Z]$, equals to $K_ij[T+Z]$ when $(T+Z)$ is symmetrized
         // Note that K_Hxc(singlet) = 2* pot_hxc_gs, that's why there's factor 2 here.
         OperatorLRHxc<T> op_ht(nspin, naos, nocc, nvirt, psi_ks,
-            DM_diff_relaxed, pot_hxc_gs, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat,
+            DM_diff_relaxed, pot_hxc_gs, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat, inputs.ddla,
             { 0 }, T(2.0), ATYPE::CC_oo, hamilt::calculation_type::lr_dmtrans_hxc);
 #ifdef __EXX
         // cal_W_from_Z only runs on the force-calculation path, so cal_force is always true here.
         OperatorLREXX<T> op_ht_exx(nspin, naos, nocc[0], nvirt[0], ucell, psi_ks,
-            DM_diff_relaxed, exx_lri, kv, p_occ_occ[0], pc, pmat,
+            DM_diff_relaxed, exx_lri, kv, p_occ_occ[0], pc, pmat, inputs.ddla,
             /*cal_force=*/true, exx_alpha, ATYPE_EXX::CC_oo, {}, hamilt::calculation_type::lr_dmtrans_exx);
 #endif
         // 2. $2\sum_{jb,kc} g^{xc}_{ia, jb, kc}X_{jb}X_{kc}$
@@ -129,7 +130,7 @@ namespace LR
             std::make_shared<PotGradXCLR>(pot_lr->xc_kernel_components(), pot_lr->get_rho_basis(),
                 ucell, pot_lr->nrxx, nspin, triplet);
         OperatorLRHxc<T> op_gxc(nspin, naos, nocc, nvirt, psi_ks,
-            DM_trans, pot_grad, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat,
+            DM_trans, pot_grad, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat, inputs.ddla,
             // Factor 1.0 according to the $W^c$ formula (`pot_grad` carries $2*g^{xc}$: uu+ud or uu-ud).
             // NOTE this factor is NOT shared with the Z-vector RHS `op_gxc` in `hamilt_zeq_right.h`:
             // that one is a different object and its original -2.0 is correct, as the formula and H2-DZP scan confirms.
@@ -137,13 +138,13 @@ namespace LR
 
         std::vector<ct::Tensor> dm_trans_2d;
         std::vector<ct::Tensor> dm_diff_2d;
-        auto cal_dm_trans = [&psi_ks, nk, &dm_trans_2d, &px, &pc, naos, &nocc, &nvirt, &pmat, &DM_trans](const int is, const T* const x_ptr)->void //DX
+        auto cal_dm_trans = [&psi_ks, nk, &dm_trans_2d, &px, &pc, naos, &nocc, &nvirt, &pmat, &DM_trans, &inputs](const int is, const T* const x_ptr)->void //DX
             {
                 const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks, is, nk);
 #ifdef __MPI
-                dm_trans_2d = cal_dm_trans_pblas(x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                dm_trans_2d = cal_dm_trans_pblas(inputs.ddla, x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
                 for (auto& t: dm_trans_2d)
-                    LR_Util::matsym(t.data<T>(), naos, pmat.para_2d());
+                    LR_Util::matsym(inputs.ddla, t.data<T>(), naos, pmat.para_2d());
 #else
                 dm_trans_2d = cal_dm_trans_blas(x_ptr, psi_ks_is, nocc[is], nvirt[is]);
                 for (auto& t: dm_trans_2d)
@@ -154,13 +155,13 @@ namespace LR
                     DM_trans.set_dmk_ptr(ik, dm_trans_2d[ik].data<T>());
                 }
             };
-        auto cal_dm_diff_relaxed = [&psi_ks, nk, &px, &pc, naos, &nocc, &nvirt, &pmat, &dm_diff_2d, &DM_diff_relaxed](const int& is, const T* const x_ptr, const T* const z_ptr)->void  // T+DZ
+        auto cal_dm_diff_relaxed = [&psi_ks, nk, &px, &pc, naos, &nocc, &nvirt, &pmat, &dm_diff_2d, &DM_diff_relaxed, &inputs](const int& is, const T* const x_ptr, const T* const z_ptr)->void  // T+DZ
             {
                 const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks, is, nk);
 #ifdef __MPI
-                std::vector<ct::Tensor> z_2d = cal_dm_trans_pblas(z_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                std::vector<ct::Tensor> z_2d = cal_dm_trans_pblas(inputs.ddla, z_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
                 for (auto& t: z_2d)
-                    LR_Util::matsym(t.data<T>(), naos, pmat.para_2d());
+                    LR_Util::matsym(inputs.ddla, t.data<T>(), naos, pmat.para_2d());
 #else
                 std::vector<ct::Tensor> z_2d = cal_dm_trans_blas(z_ptr, psi_ks_is, nocc[is], nvirt[is]);
                 for (auto& t: z_2d)
@@ -168,7 +169,7 @@ namespace LR
 #endif
 
 #ifdef __MPI
-                dm_diff_2d = cal_dm_diff_pblas(x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                dm_diff_2d = cal_dm_diff_pblas(inputs.ddla, x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
 #else
                 dm_diff_2d = cal_dm_diff_blas(x_ptr, psi_ks_is, naos, nocc[is], nvirt[is]);
 #endif
@@ -199,7 +200,7 @@ namespace LR
         if (LR_Util::has_local_xc(xc_kernel))
             op_gxc.act(/*nband=*/1, ld_oo, /*npol=*/1, X, W);
 
-        add_ediff_term(W, X, eig, eig_ks, nk, nocc[0], nvirt[0], px[0], p_occ_occ[0]);
+        add_ediff_term(inputs.ddla, W, X, eig, eig_ks, nk, nocc[0], nvirt[0], px[0], p_occ_occ[0]);
     }
 
     /// @brief Open-shell (spin-unrestricted) counterpart of `cal_W_from_Z`.
@@ -269,7 +270,7 @@ namespace LR
             for (int sr : {0, 1})
             {
                 op_ht[(sl << 1) + sr] = LR_Util::make_unique<OperatorLRHxc<T>>(nspin, naos, nocc, nvirt, psi_ks,
-                    DM_diff_relaxed, pot_hxc_gs, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat,
+                    DM_diff_relaxed, pot_hxc_gs, ucell, orb_cutoff, gd, kv, p_occ_occ, pc, pmat, inputs.ddla,
                     std::vector<int>({ sl, sr }), T(1.0), ATYPE::CC_oo, hamilt::calculation_type::lr_dmtrans_hxc);
             }
         }
@@ -287,25 +288,25 @@ namespace LR
             for (int is : {0, 1})
             {
                 op_ht_exx[is] = LR_Util::make_unique<OperatorLREXX<T>>(nspin, naos, nocc[is], nvirt[is],
-                    ucell, psi_ks_spin[is], DM_diff_relaxed, exx_lri, kv, p_occ_occ[is], pc, pmat,
+                    ucell, psi_ks_spin[is], DM_diff_relaxed, exx_lri, kv, p_occ_occ[is], pc, pmat, inputs.ddla,
                     /*cal_force=*/true, exx_alpha, ATYPE_EXX::CC_oo, no_aims_probe, hamilt::calculation_type::lr_dmtrans_exx);
             }
         }
 #endif
         // the relaxed difference density matrix of one spin channel
         std::vector<ct::Tensor> dm_buf;
-        auto set_dm_diff_relaxed = [&psi_ks, nk, X, Z, &off_x, &px, &pc, naos, &nocc, &nvirt, &pmat, &dm_buf, &DM_diff_relaxed](const int is)->void
+        auto set_dm_diff_relaxed = [&psi_ks, nk, X, Z, &off_x, &px, &pc, naos, &nocc, &nvirt, &pmat, &dm_buf, &DM_diff_relaxed, &inputs](const int is)->void
             {
                 const auto psi_ks_is = LR_Util::get_psi_spin(psi_ks, is, nk);
                 const T* const x_ptr = X + off_x[is];
                 const T* const z_ptr = Z + off_x[is];
 #ifdef __MPI
-                std::vector<ct::Tensor> z_2d = cal_dm_trans_pblas(z_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                std::vector<ct::Tensor> z_2d = cal_dm_trans_pblas(inputs.ddla, z_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
                 for (auto& t: z_2d)
                 {
-                    LR_Util::matsym(t.data<T>(), naos, pmat.para_2d());
+                    LR_Util::matsym(inputs.ddla, t.data<T>(), naos, pmat.para_2d());
                 }
-                dm_buf = cal_dm_diff_pblas(x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
+                dm_buf = cal_dm_diff_pblas(inputs.ddla, x_ptr, px[is], psi_ks_is, pc, naos, nocc[is], nvirt[is], pmat.para_2d());
 #else
                 std::vector<ct::Tensor> z_2d = cal_dm_trans_blas(z_ptr, psi_ks_is, nocc[is], nvirt[is]);
                 for (auto& t: z_2d)
@@ -346,7 +347,7 @@ namespace LR
         {
             const std::shared_ptr<PotHxcLR>& pot_lr = inputs.pot[0];
             OperatorGxcULR<T> gxc(pot_lr->xc_kernel_components(), pot_lr->get_rho_basis(),
-                ucell, orb_cutoff, gd, kv, pmat, pc, psi_ks, nocc, nvirt, naos,
+                ucell, orb_cutoff, gd, kv, pmat, inputs.ddla, pc, psi_ks, nocc, nvirt, naos,
                 px, p_occ_occ, LR_Util::MO_TYPE::OO, T(1.0), nspin, ks_solver);
             std::vector<T> w_flat(ld_oo[0] + ld_oo[1], T(0.0));
             gxc.act(X, w_flat.data());
@@ -363,7 +364,7 @@ namespace LR
         // $\sum_a X_{ai\sigma}(\Omega-\epsilon_{a\sigma})X_{aj\sigma}$ -- spin-diagonal
         for (int is : {0, 1})
         {
-            add_ediff_term(W[is].data(), X + off_x[is], eig, eig_ks + is * nk * nband_window,
+            add_ediff_term(inputs.ddla, W[is].data(), X + off_x[is], eig, eig_ks + is * nk * nband_window,
                 nk, nocc[is], nvirt[is], px[is], p_occ_occ[is]);
         }
     }

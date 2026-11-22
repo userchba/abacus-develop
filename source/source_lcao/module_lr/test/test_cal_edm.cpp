@@ -79,7 +79,7 @@ template<typename T> void check_contractions()
         }
     }
     std::vector<T> ao_occ(pao.size(), T(100.0));
-    LR::cal_X_ao_occ(x.data(), px, c.data(), pc, ao_occ.data(), pao);
+    LR::cal_X_ao_occ(nullptr, x.data(), px, c.data(), pc, ao_occ.data(), pao);
     for (int col = 0; col < pao.ncloc(); ++col)
     {
         const int occ = pao.icglb(col);
@@ -107,7 +107,7 @@ template<typename T> void check_contractions()
         }
     }
     std::vector<T> dm(pmat.size(), T(100.0));
-    LR::matdot(ao_occ.data(), right.data(), pao, dm.data(), pmat);
+    LR::matdot(nullptr, ao_occ.data(), right.data(), pao, dm.data(), pmat);
     for (int col = 0; col < pmat.ncloc(); ++col)
     {
         const int nu = pmat.icglb(col);

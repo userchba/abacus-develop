@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 /************************************************
@@ -33,6 +34,12 @@
  *     - side 'L' matches ScaLAPACK pzgesv for S X = B with B in the psi
  *       (nlocal x nband) layout;
  *     - side 'R' solves X S = H: the residual X S - H vanishes.
+ *   - gemm on submatrices (ia/ja offsets): occupied/virtual column windows
+ *     of psi as LR-TDDFT uses them, C with and without an offset and with
+ *     beta zero and non-zero, real and complex.
+ *   - tran 'T' and 'C' on square and rectangular matrices, real and complex.
+ *   - gesv and posv match ScaLAPACK p?gesv and p?potrf + p?potrs, and posv
+ *     reports a matrix that is not positive definite with the same info.
  */
 
 namespace
@@ -298,6 +305,186 @@ TEST_P(DdlaLinalgTest, RealGemmAndGeaddMatchScalapack)
     ModuleBase::ddla_linalg::geadd(&ddla, 'T', nlocal, nlocal, two, h.data(), dist.desc(), half, c_ddla.data(),
                                    dist.desc());
     EXPECT_LT(max_abs_diff_all_ranks(c_ddla, c_ref), tol);
+}
+
+namespace
+{
+// psi-shaped (nlocal x nband) layout with the blocks and the grid of dist.
+BlockCyclicDistribution layout(const BlockCyclicDistribution& dist, const int nrow, const int ncol)
+{
+    BlockCyclicDistribution out;
+    out.set(nrow, ncol, dist.nb(), dist.ictxt());
+    return out;
+}
+
+template <typename T>
+std::vector<T> as_type(const std::vector<Complex>& z);
+template <>
+std::vector<Complex> as_type<Complex>(const std::vector<Complex>& z)
+{
+    return z;
+}
+template <>
+std::vector<double> as_type<double>(const std::vector<Complex>& z)
+{
+    return real_part(z);
+}
+
+// Products on column windows of psi (occupied 1..nocc, virtual nocc+1..nband)
+// with A, B and C offsets, LibDDLA against ScaLAPACK.
+template <typename T>
+void check_submatrix_gemm(const ModuleBase::DdlaContext& ddla, const Parallel_Orbitals& pv, const int nlocal,
+                          const int nband, const double tol)
+{
+    const BlockCyclicDistribution& dist = pv.para_2d();
+    const BlockCyclicDistribution pw = layout(dist, nlocal, nband);
+    const BlockCyclicDistribution pb = layout(dist, nband, nband);
+    const int nocc = std::max(1, nband / 3);
+    const int nvirt = nband - nocc;
+    const char adj = std::is_same<T, double>::value ? 'T' : 'C';
+    const ModuleBase::DdlaContext* scalapack = nullptr;
+    const std::vector<T> h = as_type<T>(fill_local(dist, nlocal, nlocal, 11));
+    const std::vector<T> psi = as_type<T>(fill_local(pw, nlocal, nband, 12));
+    const std::vector<T> phi = as_type<T>(fill_local(pw, nlocal, nband, 13));
+    const T one(1.0);
+    const T zero(0.0);
+    const T half(0.5);
+
+    // C(nlocal x nlocal) = psi_virt * phi_occ^H, k = nvirt (A offset)
+    {
+        std::vector<T> ref(std::max<std::size_t>(dist.size(), 1), T(3.0));
+        std::vector<T> out = ref;
+        ModuleBase::ddla_linalg::gemm(scalapack, 'N', adj, nlocal, nlocal, std::min(nocc, nvirt), one, psi.data(), 1,
+                                      nocc + 1, pw.desc(), phi.data(), 1, 1, pw.desc(), zero, ref.data(), 1, 1,
+                                      dist.desc());
+        ModuleBase::ddla_linalg::gemm(&ddla, 'N', adj, nlocal, nlocal, std::min(nocc, nvirt), one, psi.data(), 1,
+                                      nocc + 1, pw.desc(), phi.data(), 1, 1, pw.desc(), zero, out.data(), 1, 1,
+                                      dist.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(ref, out), tol) << "psi_virt phi_occ^H";
+    }
+    // C(nvirt x nocc, leading block of the band layout) = psi_virt^H H phi_occ-like: A and B offsets, beta != 0
+    {
+        std::vector<T> hphi(std::max<std::size_t>(pw.size(), 1), zero);
+        ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nband, nlocal, one, h.data(), dist.desc(),
+                                      phi.data(), pw.desc(), zero, hphi.data(), pw.desc());
+        std::vector<T> ref = as_type<T>(fill_local(pb, nband, nband, 14));
+        std::vector<T> out = ref;
+        ModuleBase::ddla_linalg::gemm(scalapack, adj, 'N', nvirt, nocc, nlocal, half, psi.data(), 1, nocc + 1,
+                                      pw.desc(), hphi.data(), 1, 1, pw.desc(), half, ref.data(), 1, 1, pb.desc());
+        ModuleBase::ddla_linalg::gemm(&ddla, adj, 'N', nvirt, nocc, nlocal, half, psi.data(), 1, nocc + 1, pw.desc(),
+                                      hphi.data(), 1, 1, pw.desc(), half, out.data(), 1, 1, pb.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(ref, out), tol) << "psi_virt^H H phi_occ";
+    }
+    // C(:, nocc+1:) = H * psi(:, 2:nvirt+1) + beta C(:, nocc+1:): B and C offsets, beta 0 and != 0
+    for (const bool keep : {false, true})
+    {
+        const T beta = keep ? half : zero;
+        std::vector<T> ref = as_type<T>(fill_local(pw, nlocal, nband, 15));
+        std::vector<T> out = ref;
+        ModuleBase::ddla_linalg::gemm(scalapack, 'N', 'N', nlocal, nvirt, nlocal, one, h.data(), 1, 1, dist.desc(),
+                                      psi.data(), 1, 2, pw.desc(), beta, ref.data(), 1, nocc + 1, pw.desc());
+        ModuleBase::ddla_linalg::gemm(&ddla, 'N', 'N', nlocal, nvirt, nlocal, one, h.data(), 1, 1, dist.desc(),
+                                      psi.data(), 1, 2, pw.desc(), beta, out.data(), 1, nocc + 1, pw.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(ref, out), tol) << "C offset, beta " << (keep ? "0.5" : "0");
+    }
+}
+} // namespace
+
+TEST_P(DdlaLinalgTest, SubmatrixGemmMatchesScalapack)
+{
+    check_submatrix_gemm<double>(ddla, pv, nlocal, nband, tol);
+    check_submatrix_gemm<Complex>(ddla, pv, nlocal, nband, tol);
+}
+
+TEST_P(DdlaLinalgTest, TranMatchesScalapack)
+{
+    const BlockCyclicDistribution& dist = pv.para_2d();
+    const BlockCyclicDistribution pw = layout(dist, nlocal, nband);
+    const BlockCyclicDistribution pt = layout(dist, nband, nlocal);
+    const ModuleBase::DdlaContext* scalapack = nullptr;
+    const std::vector<Complex> h = fill_local(dist, nlocal, nlocal, 21);
+    const std::vector<Complex> psi = fill_local(pw, nlocal, nband, 22);
+    const Complex alpha(0.5, 0.25);
+    const Complex beta(-0.5, 0.0);
+    for (const char trans : {'T', 'C'})
+    {
+        // square, accumulating into C (the matsym pattern)
+        std::vector<Complex> ref = fill_local(dist, nlocal, nlocal, 23);
+        std::vector<Complex> out = ref;
+        ModuleBase::ddla_linalg::tran(scalapack, trans, nlocal, nlocal, alpha, h.data(), dist.desc(), beta, ref.data(),
+                                      dist.desc());
+        ModuleBase::ddla_linalg::tran(&ddla, trans, nlocal, nlocal, alpha, h.data(), dist.desc(), beta, out.data(),
+                                      dist.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(ref, out), 1.0e-15) << "square " << trans;
+        // rectangular nband x nlocal = op(psi)
+        std::vector<Complex> tref(std::max<std::size_t>(pt.size(), 1), Complex(0.0, 0.0));
+        std::vector<Complex> tout = tref;
+        ModuleBase::ddla_linalg::tran(scalapack, trans, nband, nlocal, alpha, psi.data(), pw.desc(), Complex(0.0, 0.0),
+                                      tref.data(), pt.desc());
+        ModuleBase::ddla_linalg::tran(&ddla, trans, nband, nlocal, alpha, psi.data(), pw.desc(), Complex(0.0, 0.0),
+                                      tout.data(), pt.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(tref, tout), 1.0e-15) << "rectangular " << trans;
+        // real: 'C' is the plain transpose (PxTRAN)
+        const std::vector<double> hr = real_part(h);
+        std::vector<double> rref = real_part(fill_local(dist, nlocal, nlocal, 24));
+        std::vector<double> rout = rref;
+        ModuleBase::ddla_linalg::tran(scalapack, trans, nlocal, nlocal, 0.5, hr.data(), dist.desc(), 0.5, rref.data(),
+                                      dist.desc());
+        ModuleBase::ddla_linalg::tran(&ddla, trans, nlocal, nlocal, 0.5, hr.data(), dist.desc(), 0.5, rout.data(),
+                                      dist.desc());
+        EXPECT_LT(max_abs_diff_all_ranks(rref, rout), 1.0e-15) << "real " << trans;
+    }
+}
+
+namespace
+{
+template <typename T>
+void check_solvers(const ModuleBase::DdlaContext& ddla, const Parallel_Orbitals& pv, const int nlocal, const int nband,
+                   const std::vector<Complex>& s_complex, const double tol)
+{
+    const BlockCyclicDistribution& dist = pv.para_2d();
+    const BlockCyclicDistribution pw = layout(dist, nlocal, nband);
+    const ModuleBase::DdlaContext* scalapack = nullptr;
+    const std::vector<T> s = as_type<T>(s_complex);
+    const std::vector<T> b = as_type<T>(fill_local(pw, nlocal, nband, 31));
+
+    std::vector<T> a_ref = s;
+    std::vector<T> x_ref = b;
+    std::vector<T> a_out = s;
+    std::vector<T> x_out = b;
+    EXPECT_EQ(ModuleBase::ddla_linalg::gesv(scalapack, nlocal, nband, a_ref.data(), dist.desc(), x_ref.data(), pw.desc()), 0);
+    EXPECT_EQ(ModuleBase::ddla_linalg::gesv(&ddla, nlocal, nband, a_out.data(), dist.desc(), x_out.data(), pw.desc()), 0);
+    EXPECT_LT(max_abs_diff_all_ranks(x_ref, x_out), tol) << "gesv";
+
+    a_ref = s;
+    x_ref = b;
+    a_out = s;
+    x_out = b;
+    EXPECT_EQ(ModuleBase::ddla_linalg::posv(scalapack, 'U', nlocal, nband, a_ref.data(), dist.desc(), x_ref.data(), pw.desc()), 0);
+    EXPECT_EQ(ModuleBase::ddla_linalg::posv(&ddla, 'U', nlocal, nband, a_out.data(), dist.desc(), x_out.data(), pw.desc()), 0);
+    EXPECT_LT(max_abs_diff_all_ranks(x_ref, x_out), tol) << "posv";
+
+    // -S is negative definite: both report the first leading minor.
+    std::vector<T> neg_ref = s;
+    for (T& v : neg_ref)
+    {
+        v = -v;
+    }
+    std::vector<T> neg_out = neg_ref;
+    x_ref = b;
+    x_out = b;
+    const int info_ref = ModuleBase::ddla_linalg::posv(scalapack, 'U', nlocal, nband, neg_ref.data(), dist.desc(), x_ref.data(), pw.desc());
+    const int info_out = ModuleBase::ddla_linalg::posv(&ddla, 'U', nlocal, nband, neg_out.data(), dist.desc(), x_out.data(), pw.desc());
+    EXPECT_GT(info_ref, 0);
+    EXPECT_EQ(info_out, info_ref);
+}
+} // namespace
+
+TEST_P(DdlaLinalgTest, GesvAndPosvMatchScalapack)
+{
+    const std::vector<Complex> s = overlap_local(pv.para_2d(), nlocal, 32);
+    check_solvers<double>(ddla, pv, nlocal, nband, s, tol);
+    check_solvers<Complex>(ddla, pv, nlocal, nband, s, tol);
 }
 
 INSTANTIATE_TEST_SUITE_P(Layouts,

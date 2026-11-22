@@ -167,9 +167,10 @@ After compiling PEXSI, pass `-DENABLE_PEXSI=ON` to CMake. ABACUS uses the CMake 
 LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic matrices, with a CPU backend and an optional GPU (CUDA) backend. ABACUS uses it in LCAO calculations for
 
 - `ks_solver ddla`: the generalized eigenproblem $H(k)C = S(k)C\,\mathrm{diag}(\epsilon)$ is solved with the LibDDLA `phegvd` routine on the process grid of the Hamiltonian; $H$, $S$ and the wave functions stay distributed and are never gathered onto one process;
-- `td_la_backend ddla`: the matrix products, additions and LU solves of the real-time TDDFT propagators run in LibDDLA instead of ScaLAPACK.
+- `td_la_backend ddla`: the matrix products, additions and LU solves of the real-time TDDFT propagators run in LibDDLA instead of ScaLAPACK;
+- `lr_la_backend ddla`: the distributed matrix operations of LR-TDDFT and BSE (AO-MO transformations, transition and difference density matrices, gradient terms, Z-vector solves, state tracking, BSE matrix products) run in LibDDLA instead of ScaLAPACK.
 
-Both run on the CPU, or on the GPUs with `device gpu`.
+All of them run on the CPU, or on the GPUs with `device gpu`.
 
 Build LibDDLA with the same MPI library as ABACUS, and with GPU support if you want to use `device gpu`. `ks_solver ddla` needs a LibDDLA version that provides `phegvd`. ABACUS finds LibDDLA through the CMake package that LibDDLA installs:
 

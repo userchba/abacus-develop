@@ -45,10 +45,11 @@ LR_Density<T>::LR_Density(const UnitCell& ucell,
     const std::vector<BlockCyclicDistribution>& pX,
     const BlockCyclicDistribution& pc,
     const Parallel_Orbitals& pmat,
+    const ModuleBase::DdlaContext* ddla,
     const bool openshell, const int output_precision, const std::string& output_directory) :
     ucell_(ucell), kv_(kv), gd_(gd), psi_ks_(psi_ks),
     orb_cutoff_(orb_cutoff), pgrid_(pgrid), nspin_(nspin),
-    nocc_(nocc), nvirt_(nvirt), nao_(nao), pX_(pX), pc_(pc), pmat_(pmat),
+    nocc_(nocc), nvirt_(nvirt), nao_(nao), pX_(pX), pc_(pc), pmat_(pmat), ddla_(ddla),
     openshell_(openshell), out_chg_precision_(output_precision), global_out_dir_(output_directory)
 {
     nk_ = kv.get_nks() / nspin;
@@ -68,14 +69,14 @@ void LR_Density<T>::cal_eh_density_single_state(const T* const X_istate, const i
     auto c_spin = LR_Util::get_psi_spin(psi_ks_, orbital_spin, nk_);
 #ifdef __MPI
     const std::vector<ct::Tensor> dm_diff_k =
-        cal_dm_diff_pblas<T>(X_istate, pX_[ispin], c_spin, pc_, nao_, nocc_[ispin], nvirt_[ispin], pmat_.para_2d());
+        cal_dm_diff_pblas<T>(this->ddla_, X_istate, pX_[ispin], c_spin, pc_, nao_, nocc_[ispin], nvirt_[ispin], pmat_.para_2d());
 #else
     const std::vector<ct::Tensor> dm_diff_k =
         cal_dm_diff_blas<T>(X_istate, c_spin, nao_, nocc_[ispin], nvirt_[ispin]);
 #endif
     // 2. calculate DM(R)
     module_dm::DensityMatrix<T, T> dm_diff=
-        LR_Util::build_dm_from_dmk<T, T>(dm_diff_k,
+        LR_Util::build_dm_from_dmk<T, T>(this->ddla_, dm_diff_k,
             this->pmat_, this->nk_, this->kv_.kvec_d, this->ucell_, this->gd_, this->orb_cutoff_);
     // 3. calculate electron density from DM(R)
     this->dm_to_density(dm_diff, density);

@@ -99,7 +99,7 @@ namespace
 
     /// solve the distributed system with `solver` and compare with LAPACK on `a_ref`
     template <typename T>
-    void check_against_lapack(void (*solver)(T*, T*, const BlockCyclicDistribution&, const BlockCyclicDistribution&),
+    void check_against_lapack(void (*solver)(const ModuleBase::DdlaContext*, T*, T*, const BlockCyclicDistribution&, const BlockCyclicDistribution&),
         const std::vector<T>& a_in, const std::vector<T>& a_ref, const int n, const int nrhs, const int nb)
     {
         const std::vector<T> b = rhs_matrix<T>(n, nrhs);
@@ -112,7 +112,7 @@ namespace
         LR_Util::setup_2d_division(pb, nb, n, nrhs, pa.ictxt());
         std::vector<T> a_loc = to_local(a_in, pa);
         std::vector<T> x_loc = to_local(b, pb);
-        solver(a_loc.data(), x_loc.data(), pa, pb);
+        solver(nullptr, a_loc.data(), x_loc.data(), pa, pb);
 
         std::vector<T> x(b.size(), T(0));
         LR_Util::gather_2d_to_full(pb, x_loc.data(), x.data(), false, n, nrhs);
@@ -144,7 +144,7 @@ namespace
         std::string error;
         try
         {
-            LR::scalapack_cholesky_linear_solver<T>(a_loc.data(), b_loc.data(), pa, pb);
+            LR::scalapack_cholesky_linear_solver<T>(nullptr, a_loc.data(), b_loc.data(), pa, pb);
         }
         catch (const std::runtime_error& failure)
         {
@@ -257,7 +257,7 @@ TEST_F(ZeqLinearSolverTest, ScalapackCholRejectsIndefinite)
     LR_Util::setup_2d_division(pb, nb, n, 1, pa.ictxt());
     std::vector<double> a_loc = to_local(a, pa);
     std::vector<double> b_loc = to_local(rhs_matrix<double>(n, 1), pb);
-    EXPECT_THROW(LR::scalapack_cholesky_linear_solver<double>(a_loc.data(), b_loc.data(), pa, pb),
+    EXPECT_THROW(LR::scalapack_cholesky_linear_solver<double>(nullptr, a_loc.data(), b_loc.data(), pa, pb),
                  std::runtime_error);
 }
 

@@ -12,6 +12,7 @@
 #include "source_lcao/module_operator_lcao/ovlp_block.h"
 #include "source_hamilt/module_hcontainer/hcontainer_funcs.h"
 #ifdef __MPI
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
 #endif
 
@@ -147,7 +148,7 @@ void check_grid(const BlockCyclicDistribution& a, const BlockCyclicDistribution&
 }
 
 template <typename T>
-std::vector<T> mo_overlap_dist(const std::vector<T>& old_coefficients,
+std::vector<T> mo_overlap_dist(const ModuleBase::DdlaContext* ddla, const std::vector<T>& old_coefficients,
     const std::vector<T>& ao, const std::vector<T>& current_coefficients,
     const BlockCyclicDistribution& pc, const BlockCyclicDistribution& ps, const BlockCyclicDistribution& po, const int first_band)
 {
@@ -194,18 +195,19 @@ std::vector<T> mo_overlap_dist(const std::vector<T>& old_coefficients,
         coefficient_block.data(), first, first,
         const_cast<int*>(coefficients.desc()), pc.ictxt());
     // Empty local blocks join all redistribution and PBLAS calls.
-    ScalapackConnector::gemm('N', 'N', naos, bands, naos, one,
+    ModuleBase::ddla_linalg::gemm(ddla, 'N', 'N', naos, bands, naos, one,
         ao_data, first, first, ps.desc(), coefficient_block.data(), first, first, coefficients.desc(),
         zero, intermediate.data(), first, first, coefficients.desc());
     // Reuse the coefficient buffer once S*C_current has been evaluated.
     Cpxgemr2d(naos, bands, old_source, first, source_column, source_desc,
         coefficient_block.data(), first, first,
         const_cast<int*>(coefficients.desc()), pc.ictxt());
-    ScalapackConnector::gemm(adjoint, 'N', bands, bands, naos, one,
+    ModuleBase::ddla_linalg::gemm(ddla, adjoint, 'N', bands, bands, naos, one,
         coefficient_block.data(), first, first, coefficients.desc(),
         intermediate.data(), first, first, coefficients.desc(),
         zero, overlap.data(), first, first, po.desc());
 #else
+    (void)ddla;
     const int source_offset = first_band * naos;
     const int selected_count = naos * bands;
     std::copy_n(new_data + source_offset, selected_count, coefficient_block.data());
@@ -220,7 +222,7 @@ std::vector<T> mo_overlap_dist(const std::vector<T>& old_coefficients,
 }
 
 template <typename T>
-std::vector<T> project_reference_dist(const std::vector<T>& previous,
+std::vector<T> project_reference_dist(const ModuleBase::DdlaContext* ddla, const std::vector<T>& previous,
     const std::vector<T>& occupied_overlap, const std::vector<T>& virtual_overlap,
     const BlockCyclicDistribution& pi, const BlockCyclicDistribution& pv, const BlockCyclicDistribution& px)
 {
@@ -247,15 +249,16 @@ std::vector<T> project_reference_dist(const std::vector<T>& previous,
     const char adjoint = std::is_same<T, double>::value ? 'T' : 'C';
 #ifdef __MPI
     const int first = 1;
-    ScalapackConnector::gemm(adjoint, 'N', nvirt, nocc, nvirt, one,
+    ModuleBase::ddla_linalg::gemm(ddla, adjoint, 'N', nvirt, nocc, nvirt, one,
         virtual_data, first, first, pv.desc(),
         old_data, first, first, px.desc(), zero,
         intermediate.data(), first, first, px.desc());
-    ScalapackConnector::gemm('N', 'N', nvirt, nocc, nocc, one,
+    ModuleBase::ddla_linalg::gemm(ddla, 'N', 'N', nvirt, nocc, nocc, one,
         intermediate.data(), first, first, px.desc(),
         occupied_data, first, first, pi.desc(), zero,
         projected.data(), first, first, px.desc());
 #else
+    (void)ddla;
     BlasConnector::gemm_cm(adjoint, 'N', nvirt, nocc, nvirt, one,
         virtual_data, nvirt, old_data, nvirt, zero, intermediate.data(), nvirt);
     BlasConnector::gemm_cm('N', 'N', nvirt, nocc, nocc, one,
@@ -265,16 +268,16 @@ std::vector<T> project_reference_dist(const std::vector<T>& previous,
     return projected;
 }
 
-template std::vector<double> mo_overlap_dist(const std::vector<double>&,
+template std::vector<double> mo_overlap_dist(const ModuleBase::DdlaContext*, const std::vector<double>&,
     const std::vector<double>&, const std::vector<double>&,
     const BlockCyclicDistribution&, const BlockCyclicDistribution&, const BlockCyclicDistribution&, int);
 template std::vector<std::complex<double>> mo_overlap_dist(
-    const std::vector<std::complex<double>>&, const std::vector<std::complex<double>>&,
+    const ModuleBase::DdlaContext*, const std::vector<std::complex<double>>&, const std::vector<std::complex<double>>&,
     const std::vector<std::complex<double>>&, const BlockCyclicDistribution&, const BlockCyclicDistribution&, const BlockCyclicDistribution&, int);
-template std::vector<double> project_reference_dist(const std::vector<double>&,
+template std::vector<double> project_reference_dist(const ModuleBase::DdlaContext*, const std::vector<double>&,
     const std::vector<double>&, const std::vector<double>&, const BlockCyclicDistribution&, const BlockCyclicDistribution&, const BlockCyclicDistribution&);
 template std::vector<std::complex<double>> project_reference_dist(
-    const std::vector<std::complex<double>>&, const std::vector<std::complex<double>>&,
+    const ModuleBase::DdlaContext*, const std::vector<std::complex<double>>&, const std::vector<std::complex<double>>&,
     const std::vector<std::complex<double>>&, const BlockCyclicDistribution&, const BlockCyclicDistribution&, const BlockCyclicDistribution&);
 
 }

@@ -37,6 +37,7 @@ namespace LR
             const Grid_Driver& gd,
             const K_Vectors& kv,
             const Parallel_Orbitals& pmat,
+            const ModuleBase::DdlaContext* ddla,
             const BlockCyclicDistribution& pc,
             const psi::Psi<T>& psi_ks,
             const std::vector<int>& nocc,
@@ -49,7 +50,7 @@ namespace LR
             const int& nspin,
             const std::string& ks_solver)
             : pot_grad_(kxc, rho_basis, ucell, rho_basis.nrxx, nspin, /*triplet=*/false),
-            ucell_(ucell), gd_(gd), kv_(kv), pmat_(pmat), pc_(pc), psi_ks_(psi_ks),
+            ucell_(ucell), gd_(gd), kv_(kv), pmat_(pmat), ddla_(ddla), pc_(pc), psi_ks_(psi_ks),
             nocc_(nocc), nvirt_(nvirt), naos_(naos), pX_(pX), pout_(pout),
             orb_cutoff_(orb_cutoff), mo_type_(mo_type), factor_(factor),
             nk_(kv.get_nks() / nspin), nrxx_(rho_basis.nrxx), ks_solver_(ks_solver)
@@ -75,11 +76,11 @@ namespace LR
             for (int is : {0, 1})
             {
 #ifdef __MPI
-                dmk[is] = cal_dm_trans_pblas(X_full + off_x[is], pX_[is], psi_spin_[is], pc_,
+                dmk[is] = cal_dm_trans_pblas(this->ddla_, X_full + off_x[is], pX_[is], psi_spin_[is], pc_,
                     naos_, nocc_[is], nvirt_[is], pmat_.para_2d());
                 for (auto& t: dmk[is])
                 {
-                    LR_Util::matsym(t.template data<T>(), naos_, pmat_.para_2d());
+                    LR_Util::matsym(this->ddla_, t.template data<T>(), naos_, pmat_.para_2d());
                 }
 #else
                 dmk[is] = cal_dm_trans_blas(X_full + off_x[is], psi_spin_[is], nocc_[is], nvirt_[is]);
@@ -89,7 +90,7 @@ namespace LR
                 }
 #endif
             }
-            module_dm::DensityMatrix<T, double> dm = LR_Util::build_dm_from_dmk_spin<T, double>(dmk,
+            module_dm::DensityMatrix<T, double> dm = LR_Util::build_dm_from_dmk_spin<T, double>(this->ddla_, dmk,
                 pmat_, nk_, kv_.kvec_d, ucell_, gd_, orb_cutoff_);
 
             double** rho1 = nullptr;
@@ -123,7 +124,7 @@ namespace LR
                     folding_HR(*this->hR_, v_2d[ik].template data<T>(), kv_.kvec_d[ik], nrow, 1);
                 }
 #ifdef __MPI
-                ao_to_mo_pblas(v_2d, pmat_.para_2d(), psi_spin_[tau], pc_, naos_, nocc_[tau], nvirt_[tau],
+                ao_to_mo_pblas(this->ddla_, v_2d, pmat_.para_2d(), psi_spin_[tau], pc_, naos_, nocc_[tau], nvirt_[tau],
                     pout_[tau], out_full + off_out[tau], /*add_on=*/true, mo_type_, factor_);
 #else
                 ao_to_mo_blas(v_2d, psi_spin_[tau], nocc_[tau], nvirt_[tau],
@@ -140,6 +141,8 @@ namespace LR
         const Grid_Driver& gd_;
         const K_Vectors& kv_;
         const Parallel_Orbitals& pmat_;
+        /// LibDDLA handle bound to the grid of pmat, or null for ScaLAPACK
+        const ModuleBase::DdlaContext* ddla_ = nullptr;
         const BlockCyclicDistribution& pc_;
         const psi::Psi<T>& psi_ks_;
         std::vector<psi::Psi<T>> psi_spin_;

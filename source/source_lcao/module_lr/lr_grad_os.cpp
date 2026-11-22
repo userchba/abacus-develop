@@ -52,15 +52,15 @@ std::vector<ModuleBase::matrix> evaluate_open_shell_force(
         for (int is : {0, 1})
         {
 #ifdef __MPI
-            dmx_k[is] = cal_dm_trans_pblas(X_istate + off_x[is], paraX_g[is], c_spin[is], inputs.pc,
+            dmx_k[is] = cal_dm_trans_pblas(inputs.ddla, X_istate + off_x[is], paraX_g[is], c_spin[is], inputs.pc,
                 inputs.nbasis, inputs.nocc[is], nvirt_g[is], inputs.pmat.para_2d());
-            dmdiff_k[is] = cal_dm_diff_pblas(X_istate + off_x[is], paraX_g[is], c_spin[is], inputs.pc,
+            dmdiff_k[is] = cal_dm_diff_pblas(inputs.ddla, X_istate + off_x[is], paraX_g[is], c_spin[is], inputs.pc,
                 inputs.nbasis, inputs.nocc[is], nvirt_g[is], inputs.pmat.para_2d());
-            std::vector<ct::Tensor> dmz_k = cal_dm_trans_pblas(Z_istate + off_x[is], paraX_g[is], c_spin[is],
+            std::vector<ct::Tensor> dmz_k = cal_dm_trans_pblas(inputs.ddla, Z_istate + off_x[is], paraX_g[is], c_spin[is],
                 inputs.pc, inputs.nbasis, inputs.nocc[is], nvirt_g[is], inputs.pmat.para_2d());
             for (auto& d: dmz_k)
             {
-                LR_Util::matsym(d.template data<T>(), inputs.nbasis, inputs.pmat.para_2d());
+                LR_Util::matsym(inputs.ddla, d.template data<T>(), inputs.nbasis, inputs.pmat.para_2d());
             }
 #else
             dmx_k[is] = cal_dm_trans_blas(X_istate + off_x[is], c_spin[is], inputs.nocc[is], nvirt_g[is]);
@@ -77,17 +77,17 @@ std::vector<ModuleBase::matrix> evaluate_open_shell_force(
         // 2. $D^X$. Complex and UN-symmetrized first (the EXX kernel needs the full
         //    non-symmetric $D^X$), then the real symmetrized copy for the grid Hxc force --
         //    `build_dm_from_dmk_spin` symmetrizes IN PLACE, hence the ordering.
-        auto dm_trans = LR_Util::build_dm_from_dmk_spin<T, T>(dmx_k,
+        auto dm_trans = LR_Util::build_dm_from_dmk_spin<T, T>(inputs.ddla, dmx_k,
             inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff);
-        LR_Util::transpose_DMR(dm_trans, inputs.pmat);
-        auto dm_trans_real = LR_Util::build_dm_from_dmk_spin<T, double>(dmx_k,
+        LR_Util::transpose_DMR(inputs.ddla, dm_trans, inputs.pmat);
+        auto dm_trans_real = LR_Util::build_dm_from_dmk_spin<T, double>(inputs.ddla, dmx_k,
             inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff,
             /*symmetrize=*/true);
-        LR_Util::transpose_DMR(dm_trans_real, inputs.pmat);
+        LR_Util::transpose_DMR(inputs.ddla, dm_trans_real, inputs.pmat);
 
         // 3. the relaxed difference density matrix $T+D^Z$
         const module_dm::DensityMatrix<T, T>& relaxed_diff_dm =
-            LR_Util::build_dm_from_dmk_spin<T, T>(relaxed_k,
+            LR_Util::build_dm_from_dmk_spin<T, T>(inputs.ddla, relaxed_k,
                 inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff);
         module_dm::DensityMatrix<T, double> relaxed_diff_dm_real(&inputs.pmat, 2, inputs.kv.kvec_d, inputs.nk);
         LR_Util::initialize_DMR(relaxed_diff_dm_real, inputs.pmat, inputs.ucell, inputs.gd, inputs.orb_cutoff);
@@ -98,7 +98,7 @@ std::vector<ModuleBase::matrix> evaluate_open_shell_force(
         const double omega_istate = omega[istate - ist_begin];
         const std::vector<std::vector<ct::Tensor>>& edm_k = cal_edm_from_XZ_istate_openshell(
             inputs, X_istate, Z_istate, omega_istate, inputs.eig_ks.c, dm_trans, pot_weak);
-        module_dm::DensityMatrix<T, double> edm_real = LR_Util::build_dm_from_dmk_spin<T, double>(edm_k,
+        module_dm::DensityMatrix<T, double> edm_real = LR_Util::build_dm_from_dmk_spin<T, double>(inputs.ddla, edm_k,
             inputs.pmat, inputs.nk, inputs.kv.kvec_d, inputs.ucell, inputs.gd, inputs.orb_cutoff,
             /*symmetrize=*/true);
 

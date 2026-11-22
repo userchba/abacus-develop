@@ -1,6 +1,6 @@
 #ifdef __MPI
 #include "cvcx.h"
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/tool_title.h"
 #include "source_lcao/module_lr/utils/lr_util.h"
 #include "source_lcao/module_lr/utils/lr_util_print.h"
@@ -8,6 +8,7 @@ namespace LR
 {
     template <>
     void CVCX_occ_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<double, base_device::DEVICE_CPU>& c,
@@ -53,7 +54,7 @@ namespace LR
 
             // c^TV[nocc*naos]
             container::Tensor cv(DAT::DT_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ScalapackConnector::gemm(trans,
+            ModuleBase::ddla_linalg::gemm(ddla, trans,
                 notrans,
                 nocc,
                 naos,
@@ -75,7 +76,7 @@ namespace LR
 
             // cX^T[naos*nvirt]
             container::Tensor cx(DAT::DT_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ScalapackConnector::gemm(notrans,
+            ModuleBase::ddla_linalg::gemm(ddla, notrans,
                 trans,
                 naos,
                 nvirt,
@@ -97,7 +98,7 @@ namespace LR
 
             //AX_istate=[cX^T]^T[c^TV]^T (nvirt major)
             const auto accumulation_beta_10 = add_on ? one : zero;
-            ScalapackConnector::gemm(trans,
+            ModuleBase::ddla_linalg::gemm(ddla, trans,
                 trans,
                 nvirt,
                 nocc,
@@ -121,6 +122,7 @@ namespace LR
 
     template <>
     void CVCX_occ_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<std::complex<double>, base_device::DEVICE_CPU>& c,
@@ -167,7 +169,7 @@ namespace LR
 
             // c^TV[nocc*naos]
             container::Tensor cv(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ScalapackConnector::gemm(dagger,
+            ModuleBase::ddla_linalg::gemm(ddla, dagger,
                 notrans,
                 nocc,
                 naos,
@@ -189,7 +191,7 @@ namespace LR
 
             // cX^T[naos*nvirt]
             container::Tensor cx(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ScalapackConnector::gemm(notrans,
+            ModuleBase::ddla_linalg::gemm(ddla, notrans,
                 dagger,
                 naos,
                 nvirt,
@@ -211,7 +213,7 @@ namespace LR
 
             //AX_istate=[cX^T]^T[c^TV]^T (nvirt major)
             const auto accumulation_beta_7 = add_on ? one : zero;
-            ScalapackConnector::gemm(trans,
+            ModuleBase::ddla_linalg::gemm(ddla, trans,
                 trans,
                 nvirt,
                 nocc,
@@ -235,6 +237,7 @@ namespace LR
 
     template <>
     void CVCX_virt_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<double, base_device::DEVICE_CPU>& c,
@@ -281,7 +284,7 @@ namespace LR
 
             // VC[naos*nvirt]
             container::Tensor cv(DAT::DT_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ScalapackConnector::gemm(notrans,
+            ModuleBase::ddla_linalg::gemm(ddla, notrans,
                 notrans,
                 naos,
                 nvirt,
@@ -303,7 +306,7 @@ namespace LR
 
             // X^TC^T[nocc*naos]
             container::Tensor cx(DAT::DT_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ScalapackConnector::gemm(dagger,
+            ModuleBase::ddla_linalg::gemm(ddla, dagger,
                 dagger,
                 nocc,
                 naos,
@@ -325,7 +328,7 @@ namespace LR
 
             //AX_istate=[VC]^T[X^TC^T]^T (nvirt major)
             const auto accumulation_beta_4 = add_on ? one : zero;
-            ScalapackConnector::gemm(trans,
+            ModuleBase::ddla_linalg::gemm(ddla, trans,
                 trans,
                 nvirt,
                 nocc,
@@ -349,6 +352,7 @@ namespace LR
 
     template <>
     void CVCX_virt_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& V_istate,
         const BlockCyclicDistribution& pmat,
         const psi::Psi<std::complex<double>, base_device::DEVICE_CPU>& c,
@@ -395,7 +399,7 @@ namespace LR
 
             // VC[naos*nvirt]
             container::Tensor cv(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcv.ncloc(), pcv.nrloc() });
-            ScalapackConnector::gemm(notrans,
+            ModuleBase::ddla_linalg::gemm(ddla, notrans,
                 notrans,
                 naos,
                 nvirt,
@@ -417,7 +421,7 @@ namespace LR
 
             // X^TC^T[nocc*naos]
             container::Tensor cx(DAT::DT_COMPLEX_DOUBLE, DEV::CpuDevice, { pcx.ncloc(), pcx.nrloc() });
-            ScalapackConnector::gemm(dagger,
+            ModuleBase::ddla_linalg::gemm(ddla, dagger,
                 dagger,
                 nocc,
                 naos,
@@ -439,7 +443,7 @@ namespace LR
 
             //AX_istate=[VC]^T[X^TC^T]^T (nvirt major)
             const auto accumulation_beta_1 = add_on ? one : zero;
-            ScalapackConnector::gemm(trans,
+            ModuleBase::ddla_linalg::gemm(ddla, trans,
                 trans,
                 nvirt,
                 nocc,

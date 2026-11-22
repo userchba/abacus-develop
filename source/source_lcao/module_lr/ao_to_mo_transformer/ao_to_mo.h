@@ -8,6 +8,10 @@
 #include <cassert>
 #ifdef __MPI
 #include "source_base/block_cyclic_distribution.h"
+namespace ModuleBase
+{
+class DdlaContext;
+}
 #endif
 namespace LR
 {
@@ -35,6 +39,7 @@ namespace LR
 #ifdef __MPI
     template<typename T>
     void ao_to_mo_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const std::vector<container::Tensor>& mat_ao,
         const BlockCyclicDistribution& pmat_ao,
         const psi::Psi<T>& coeff,

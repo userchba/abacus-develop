@@ -1,13 +1,14 @@
 #ifdef __MPI
 // #include <ATen/core/tensor_types.h>
 #include "source_base/module_container/ATen/core/tensor_types.h"
-#include "source_base/module_external/scalapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/tool_title.h"
 #include "source_lcao/module_lr/utils/lr_util.h"
 #include "dm_diff.h"
 namespace LR
 {
     void CvX(
+        const ModuleBase::DdlaContext* ddla,
         const double* C,
         const BlockCyclicDistribution& pc,
         const double* X,
@@ -24,7 +25,7 @@ namespace LR
         char transb = 'N';
         const double alpha = 1.0;
         const double beta = 0;
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             naos,
             nocc,
@@ -45,6 +46,7 @@ namespace LR
             pcx.desc());
     }
     void CvX(
+        const ModuleBase::DdlaContext* ddla,
         const std::complex<double>* C,
         const BlockCyclicDistribution& pc,
         const std::complex<double>* X,
@@ -61,7 +63,7 @@ namespace LR
         char transb = 'N';
         const std::complex<double> alpha(1.0, 0.0);
         const std::complex<double> beta(0.0, 0.0);
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             naos,
             nocc,
@@ -83,6 +85,7 @@ namespace LR
     }
 
     void CoXT(
+        const ModuleBase::DdlaContext* ddla,
         const double* C,
         const BlockCyclicDistribution& pc,
         const double* X,
@@ -98,7 +101,7 @@ namespace LR
         char transb = 'T';
         const double alpha = 1.0;
         const double beta = 0;
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             naos,
             nvirt,
@@ -119,6 +122,7 @@ namespace LR
             pcxt.desc());
     }
     void CoXT(
+        const ModuleBase::DdlaContext* ddla,
         const std::complex<double>* C,
         const BlockCyclicDistribution& pc,
         const std::complex<double>* X,
@@ -134,7 +138,7 @@ namespace LR
         char transb = 'T';
         const std::complex<double> alpha(1.0, 0.0);
         const std::complex<double> beta(0.0, 0.0);
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             naos,
             nvirt,
@@ -156,6 +160,7 @@ namespace LR
     }
 
     void AAT(
+        const ModuleBase::DdlaContext* ddla,
         const double* A,
         const BlockCyclicDistribution& pa,
         const int& nrow,
@@ -169,7 +174,7 @@ namespace LR
         char transa = 'N';
         char transb = 'T';
         const double beta = add ? 1.0 : 0.0;
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             nrow,
             nrow,
@@ -190,6 +195,7 @@ namespace LR
             pc.desc());
     }
     void AAT(
+        const ModuleBase::DdlaContext* ddla,
         const std::complex<double>* A,
         const BlockCyclicDistribution& pa,
         const int& nrow,
@@ -207,7 +213,7 @@ namespace LR
         std::vector<std::complex<double>> A_conj(pa.size());
         for (int i = 0; i < pa.size(); ++i)
             A_conj[i] = std::conj(A[i]);
-        ScalapackConnector::gemm(transa,
+        ModuleBase::ddla_linalg::gemm(ddla, transa,
             transb,
             nrow,
             nrow,
@@ -233,6 +239,7 @@ namespace LR
     // X: nvirt*nocc in para2d, nocc*nvirt in psi (row-para and constructed: nvirt)
     template<typename T>
     std::vector<ct::Tensor> cal_dm_diff_pblas(
+        const ModuleBase::DdlaContext* ddla,
         const T* const X_istate,
         const BlockCyclicDistribution& px,
         const psi::Psi<T, base_device::DEVICE_CPU>& c,
@@ -264,23 +271,23 @@ namespace LR
             c.fix_k(iks);
             const int start = iks * px.size();
             // 1. C_virt * X
-            CvX(c.get_pointer(), pc, x_data + start, px, naos, nocc, nvirt, cvx.data<T>(), pcx);
+            CvX(ddla, c.get_pointer(), pc, x_data + start, px, naos, nocc, nvirt, cvx.data<T>(), pcx);
             // 2. C_occ * X^T
-            CoXT(c.get_pointer(), pc, x_data + start, px, naos, nocc, nvirt, coxt.data<T>(), pcxt);
+            CoXT(ddla, c.get_pointer(), pc, x_data + start, px, naos, nocc, nvirt, coxt.data<T>(), pcxt);
             // print_colfirst(c.get_pointer(), "c_pblas", naos, nocc + nvirt);
             // print_colfirst(X_istate.get_pointer(), "X_pblas", nvirt, nocc);
             // print_colfirst(cvx.data<T>(), "cvx_pblas", naos, nocc);
             // print_colfirst(coxt.data<T>(), "coxt_pblas", naos, nvirt);
             // 3. cvx*cvx^T - coxt*coxt^T
-            AAT(cvx.data<T>(), pcx, naos, nocc, dm_diff[iks].data<T>(), pmat, false, renorm_k ? (T)(1.0 / (double)nk) : (T)1.0);
+            AAT(ddla, cvx.data<T>(), pcx, naos, nocc, dm_diff[iks].data<T>(), pmat, false, renorm_k ? (T)(1.0 / (double)nk) : (T)1.0);
             // print_colfirst(dm_diff[iks].data<T>(), "dm_diff_1_pblas", naos, naos);
-            AAT(coxt.data<T>(), pcxt, naos, nvirt, dm_diff[iks].data<T>(), pmat, true, renorm_k ? (T)(-1.0 / (double)nk) : (T)(-1.0));
+            AAT(ddla, coxt.data<T>(), pcxt, naos, nvirt, dm_diff[iks].data<T>(), pmat, true, renorm_k ? (T)(-1.0 / (double)nk) : (T)(-1.0));
             // print_colfirst(dm_diff[iks].data<T>(), "dm_diff_2_pblas", naos, naos);
         }
         return dm_diff;
     }
-template std::vector<container::Tensor> cal_dm_diff_pblas<double>(const double* const, const BlockCyclicDistribution&, const psi::Psi<double, base_device::DEVICE_CPU>&, const BlockCyclicDistribution&, const int&, const int&, const int&, const BlockCyclicDistribution&, const bool, const int);
-template std::vector<container::Tensor> cal_dm_diff_pblas<std::complex<double>>(const std::complex<double>* const, const BlockCyclicDistribution&, const psi::Psi<std::complex<double>, base_device::DEVICE_CPU>&, const BlockCyclicDistribution&, const int&, const int&, const int&, const BlockCyclicDistribution&, const bool, const int);
+template std::vector<container::Tensor> cal_dm_diff_pblas<double>(const ModuleBase::DdlaContext*, const double* const, const BlockCyclicDistribution&, const psi::Psi<double, base_device::DEVICE_CPU>&, const BlockCyclicDistribution&, const int&, const int&, const int&, const BlockCyclicDistribution&, const bool, const int);
+template std::vector<container::Tensor> cal_dm_diff_pblas<std::complex<double>>(const ModuleBase::DdlaContext*, const std::complex<double>* const, const BlockCyclicDistribution&, const psi::Psi<std::complex<double>, base_device::DEVICE_CPU>&, const BlockCyclicDistribution&, const int&, const int&, const int&, const BlockCyclicDistribution&, const bool, const int);
 
 }
 #endif

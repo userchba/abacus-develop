@@ -497,5 +497,21 @@ void ModuleESolver::ESolver_LR<T, TR>::initialize_from_unitcell_(UnitCell& ucell
         // ModuleBase::Ylm::set_coefficients() is deprecated
 }
 
+template <typename T, typename TR>
+void ModuleESolver::ESolver_LR<T, TR>::bind_lr_ddla_()
+{
+    this->lr_ddla_ = nullptr;
+    if (this->inp_->lr_la_backend != "ddla")
+    {
+        return;
+    }
+#ifdef __DDLA
+    this->lr_ddla_ctx_.bind(this->paraMat_.para_2d(), this->inp_->device == "gpu");
+    this->lr_ddla_ = &this->lr_ddla_ctx_;
+#else
+    ModuleBase::WARNING_QUIT("ESolver_LR", "lr_la_backend ddla needs ABACUS built with LibDDLA support");
+#endif
+}
+
 template class ModuleESolver::ESolver_LR<double, double>;
 template class ModuleESolver::ESolver_LR<std::complex<double>, double>;

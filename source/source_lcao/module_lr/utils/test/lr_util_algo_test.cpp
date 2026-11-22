@@ -75,7 +75,7 @@ TEST(LR_Util, MatSymDouble)
             din_local[j * pmat.nrloc() + i] = din[pmat.icglb(j) * n + pmat.irglb(i)];
 
     std::vector<double> dout_local(pmat.size(), 0.0);
-    LR_Util::matsym(din_local.data(), n, pmat, dout_local.data());
+    LR_Util::matsym(nullptr, din_local.data(), n, pmat, dout_local.data());
     for (int i = 0;i < pmat.nrloc();++i)
         for (int j = 0;j < pmat.ncloc();++j)
             EXPECT_DOUBLE_EQ(dout_local[j * pmat.nrloc() + i], dref[pmat.icglb(j) * n + pmat.irglb(i)]);
@@ -85,7 +85,7 @@ TEST(LR_Util, MatSymDouble)
     for (int i = 0;i < n * n;++i)
         EXPECT_DOUBLE_EQ(din[i], dref[i]);
 
-    LR_Util::matsym(din_local.data(), n, pmat);
+    LR_Util::matsym(nullptr, din_local.data(), n, pmat);
     for (int i = 0;i < pmat.size();++i)
         EXPECT_DOUBLE_EQ(din_local[i], dout_local[i]);
 }
@@ -107,7 +107,7 @@ TEST(LR_Util, MatSymComplex)
             din_local[j * pmat.nrloc() + i] = din[pmat.icglb(j) * n + pmat.irglb(i)];
 
     std::vector<std::complex<double>> dout_local(pmat.size(), std::complex<double>(0.0, 0.0));
-    LR_Util::matsym(din_local.data(), n, pmat, dout_local.data());
+    LR_Util::matsym(nullptr, din_local.data(), n, pmat, dout_local.data());
     for (int i = 0;i < pmat.nrloc();++i)
         for (int j = 0;j < pmat.ncloc();++j)
         {
@@ -123,7 +123,7 @@ TEST(LR_Util, MatSymComplex)
         EXPECT_DOUBLE_EQ(din[i].imag(), dref[i].imag());
     }
 
-    LR_Util::matsym(din_local.data(), n, pmat);
+    LR_Util::matsym(nullptr, din_local.data(), n, pmat);
     for (int i = 0;i < pmat.size();++i)
     {
         EXPECT_DOUBLE_EQ(din_local[i].real(), dout_local[i].real());

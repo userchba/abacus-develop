@@ -25,6 +25,7 @@ HamiltBSE<T>::HamiltBSE(const int& nspin,
                 const std::vector<BlockCyclicDistribution>& pX_in,// vector for spin, parallel as {nvirt, nocc}
                 const BlockCyclicDistribution& pc_in, //parallel as {nbasis, nbands}
                 const Parallel_Orbitals& pmat_in, //parallel as {nbasis, nbasis}
+                const ModuleBase::DdlaContext* ddla_in,
                 const std::vector<std::string>& spin_types_in, //can be singlet and triplet
                 const std::string& tda, // can be: "tda", "full", "both"
                 const bool bse_ri_hartree_in,
@@ -40,7 +41,7 @@ HamiltBSE<T>::HamiltBSE(const int& nspin,
     orb_cutoff(orb_cutoff_in), gd(gd_in), psi_ks(psi_in), psi_ks_glb(psi_glb_in), eig_gw(eig_gw_in),
     mo_lri(mo_lri_in),
     pot(pot_in), kv(kv_in),
-    pX(pX_in), pc(pc_in), pmat(pmat_in),
+    pX(pX_in), pc(pc_in), pmat(pmat_in), ddla(ddla_in),
     spin_types(spin_types_in), bse_ri_hartree(bse_ri_hartree_in), bse_mem_save(bse_mem_save_in),
     bse_continue(bse_continue_in), out_bse_ab(out_bse_ab_in), out_dir(out_dir_in), readin_dir(readin_dir_in),
     my_rank(my_rank_in), nproc(nproc_in),
@@ -327,7 +328,7 @@ void HamiltBSE<T>::init_bse_matrix(const bool is_full, const int & st_index){
     GlobalV::ofs_running << "CHECK hermiticity/symmetry" << std::endl;
     std::cout << "| CHECK hermiticity/symmetry" << std::endl;
     constexpr double threshold = 1.0e-6;
-    if (LR_Util::is_hermitian(this->BSE_A_local.data(), this->pA, threshold, this->my_rank))
+    if (LR_Util::is_hermitian(this->ddla, this->BSE_A_local.data(), this->pA, threshold, this->my_rank))
     {
         std::cout << "|  CHECK PASS: Matrix A is hermitian under threshold " << threshold << std::endl;
     }
@@ -342,7 +343,7 @@ void HamiltBSE<T>::init_bse_matrix(const bool is_full, const int & st_index){
 
     if (is_full)
     {
-        if (LR_Util::is_symmetric(this->BSE_B_local.data(), this->pA, threshold, this->my_rank))
+        if (LR_Util::is_symmetric(this->ddla, this->BSE_B_local.data(), this->pA, threshold, this->my_rank))
         {
             std::cout << "|  CHECK PASS: Matrix B is symmetric under threshold " << threshold << std::endl;
         }
@@ -407,7 +408,7 @@ void HamiltBSE<double>::full_solver(const int& st_index, const int& nstates,
     std::vector<std::complex<double>> BSE_B_local_complex = to_complex(this->BSE_B_local);
     std::vector<std::complex<double>> local_v_full(pM.size(), 0.0);
     std::vector<double> ev(2 * this->ndim, 0.0);
-    BSE::solve_full(this->my_rank,
+    BSE::solve_full(this->ddla, this->my_rank,
                     BSE_A_local_complex,
                     BSE_B_local_complex,
                     this->pA,
@@ -453,7 +454,7 @@ void HamiltBSE<std::complex<double>>::full_solver(const int& st_index, const int
     std::vector<std::complex<double>> local_v_full(pM.size(), 0.0);
     std::vector<double> ev(2 * this->ndim, 0.0);
     ModuleBase::TITLE("HamiltBSE", "full_solver(complex)2");
-    BSE::solve_full(this->my_rank,
+    BSE::solve_full(this->ddla, this->my_rank,
                     this->BSE_A_local,
                     this->BSE_B_local,
                     this->pA,
@@ -501,7 +502,7 @@ void HamiltBSE<T>::cal_V_by_grid(bool is_A)
                     { imo1 = b + nocc[is]; imo2 = j; }
     #ifdef __MPI
                 ct::Tensor dm_trans_2d = 
-                    BSE_Util::cal_dm_trans_onebase_pblas(psi_is, pc, ik2, naos, imo1, imo2, pmat, (T)1.0 / (T)nk);
+                    BSE_Util::cal_dm_trans_onebase_pblas(this->ddla, psi_is, pc, ik2, naos, imo1, imo2, pmat, (T)1.0 / (T)nk);
     #else
                 ct::Tensor dm_trans_2d = 
                     BSE_Util::cal_dm_trans_onebase_blas(psi_is, ik2, naos, imo1, imo2, (T)1.0 / (T)nk);
@@ -526,7 +527,7 @@ void HamiltBSE<T>::cal_V_by_grid(bool is_A)
                 // for (int ik1 = 0;ik1 < nk;++ik1)
                 //     LR_Util::print_tensor<T>(v_k_2d[ik1], "V(k)[ik=" + std::to_string(ik1) + "]", &this->pmat);
     #ifdef __MPI
-                LR::ao_to_mo_pblas(v_k_2d, this->pmat.para_2d(), psi_is, this->pc, this->naos,
+                LR::ao_to_mo_pblas(this->ddla, v_k_2d, this->pmat.para_2d(), psi_is, this->pc, this->naos,
                                 nocc[is], nvirt[is], pV_col, V_col_local.data(), false, LR_Util::MO_TYPE::VO, T(1.0));
 
                 for (int ik1 = 0; ik1 < this->nk; ++ik1) {

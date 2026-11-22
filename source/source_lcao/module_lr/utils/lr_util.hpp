@@ -6,6 +6,7 @@
 #include "source_base/constants.h"
 #include "source_hamilt/module_xc/xc_functional.h"
 #include "source_base/module_external/lapack_connector.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/module_external/scalapack_connector.h"
 #include <algorithm>
 #include <cstddef>
@@ -104,7 +105,7 @@ namespace LR_Util
         }
     }
     template<typename T>
-    bool is_hermitian(const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank){
+    bool is_hermitian(const ModuleBase::DdlaContext* ddla, const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank){
         bool is_herm = true;
         int n = pmat.nrglb();
         assert(n == pmat.ncglb());
@@ -112,7 +113,6 @@ namespace LR_Util
         const char norm_type = 'F';
         double norm1(0.0), norm2(0.0);
 #ifdef __MPI
-        const int one = 1;
         T alpha = 1.0;
         T beta = 0.0;
         if (pmat.size() > std::numeric_limits<int>::max())
@@ -121,9 +121,7 @@ namespace LR_Util
              + std::to_string(pmat.size()) + " elements, which may overflow during `tranc`, please use more mpi." << std::endl;
         }
         std::vector<T> herm_mat(pmat.size());
-        ScalapackConnector::tranc(n, n,
-                alpha, const_cast<T*>(mat), one, one, pmat.desc(),
-                beta, herm_mat.data(), one, one, pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'C', n, n, alpha, mat, pmat.desc(), beta, herm_mat.data(), pmat.desc());
         ModuleBase::TITLE("LR_Util", "is_hermitian: tranc");
         ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "is_hermitian: tranc");
         T diff;
@@ -169,7 +167,7 @@ namespace LR_Util
     }
 
     template<typename T>
-    bool is_symmetric(const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank){
+    bool is_symmetric(const ModuleBase::DdlaContext* ddla, const T* mat, const BlockCyclicDistribution& pmat, const double threshold, const int my_rank){
         bool is_sym = true;
         int n = pmat.nrglb();
         assert(n == pmat.ncglb());
@@ -177,7 +175,6 @@ namespace LR_Util
         const char norm_type = 'F';
         double norm1(0.0), norm2(0.0);
 #ifdef __MPI
-        const int one = 1;
         T alpha = 1.0;
         T beta = 0.0;
         if (pmat.size() > std::numeric_limits<int>::max())
@@ -186,9 +183,7 @@ namespace LR_Util
              + std::to_string(pmat.size()) + " elements, which may overflow during `tranu`, please use more mpi." << std::endl;
         }
         std::vector<T> trans_mat(pmat.size());
-        ScalapackConnector::tranu(n, n,
-                alpha, const_cast<T*>(mat), one, one, pmat.desc(),
-                beta, trans_mat.data(), one, one, pmat.desc());
+        ModuleBase::ddla_linalg::tran(ddla, 'T', n, n, alpha, mat, pmat.desc(), beta, trans_mat.data(), pmat.desc());
         ModuleBase::TITLE("LR_Util", "is_symmetric: tranu");
         ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "is_hermitian: tranu");
         T diff;

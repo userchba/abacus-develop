@@ -155,7 +155,7 @@ std::vector<T> transform_for_test(const std::vector<T>& old, const std::vector<d
     const auto local_old = scatter(old_rows, pc);
     const auto local_current = scatter(current_rows, pc);
     const auto local_ao = scatter(typed_ao, ps);
-    const auto actual = LR::mo_overlap_dist(local_old, local_ao, local_current, pc, ps, po, start);
+    const auto actual = LR::mo_overlap_dist(nullptr, local_old, local_ao, local_current, pc, ps, po, start);
     return gather(actual, po);
 }
 
@@ -188,7 +188,7 @@ std::vector<T> project(const std::vector<T>& previous, const std::vector<T>& ove
     const auto virtuals = overlap_block(overlap, bands, no, nv);
     const auto local_occupied = scatter(occupied, pi);
     const auto local_virtuals = scatter(virtuals, pv);
-    const auto actual = LR::project_reference_dist(local_previous, local_occupied, local_virtuals, pi, pv, px);
+    const auto actual = LR::project_reference_dist(nullptr, local_previous, local_occupied, local_virtuals, pi, pv, px);
     const auto rows = gather(actual, px);
     std::vector<T> result(previous.size());
     for (int i = 0; i < no; ++i)
@@ -271,7 +271,7 @@ void check_projection(int no, int nv, T phase, int block_size)
     const auto virtuals = overlap_block(overlap, bands, no, nv);
     const auto local_occupied = scatter(occupied, pi);
     const auto local_virtuals = scatter(virtuals, pv);
-    const auto actual = LR::project_reference_dist(local_previous, local_occupied, local_virtuals, pi, pv, px);
+    const auto actual = LR::project_reference_dist(nullptr, local_previous, local_occupied, local_virtuals, pi, pv, px);
     const auto expected = reference_projection(previous, overlap, no, nv);
     std::vector<T> expected_rows(expected.size());
     for (int i = 0; i < no; ++i)

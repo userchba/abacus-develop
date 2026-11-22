@@ -1,4 +1,5 @@
 #include "bse_util.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_lcao/module_lr/utils/lr_util.hpp"
 
 namespace BSE_Util
@@ -6,6 +7,7 @@ namespace BSE_Util
 #ifdef __MPI
 template <>
 container::Tensor cal_dm_trans_onebase_pblas(
+    const ModuleBase::DdlaContext* ddla,
     const psi::Psi<double>& c,
     const BlockCyclicDistribution& pc,
     const int& ik,
@@ -37,7 +39,7 @@ container::Tensor cal_dm_trans_onebase_pblas(
     // for excitation => [C_virt * C_occ^T]^T = C_occ * C_virt^T  
     // (lhs for row-major Tensor, rhs for column-major pblas, occ_aos is contiguous)
 
-    ScalapackConnector::gemm(transa, transb, naos, naos, one,
+    ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, naos, one,
         factor, c.get_pointer(), one, imo1_, pc.desc(),
         c.get_pointer(), one, imo2_, pc.desc(),
         beta, dm_trans.data<double>(), one, one, matrix_dist.desc());
@@ -47,6 +49,7 @@ container::Tensor cal_dm_trans_onebase_pblas(
 
 template <>
 container::Tensor cal_dm_trans_onebase_pblas(
+    const ModuleBase::DdlaContext* ddla,
     const psi::Psi<std::complex<double>>& c,
     const BlockCyclicDistribution& pc,
     const int& ik,
@@ -82,15 +85,15 @@ container::Tensor cal_dm_trans_onebase_pblas(
     
     // Since psi::get_pointer(ib) is only for global wfc, we implement the conj through pzgemm 
     // As a comparasion, see cal_dm_trans_onebase_blas(complex)
-    ScalapackConnector::gemm(transa, transb, naos, naos, one,
+    ModuleBase::ddla_linalg::gemm(ddla, transa, transb, naos, naos, one,
             factor, c.get_pointer(), one, imo2_, pc.desc(),
             c.get_pointer(), one, imo1_, pc.desc(),
             beta, dm_trans_tmp.data(), one, one, matrix_dist.desc());
 
-    ScalapackConnector::tranu(naos, naos, alpha,
-            dm_trans_tmp.data(), one, one, matrix_dist.desc(),
+    ModuleBase::ddla_linalg::tran(ddla, 'T', naos, naos, alpha,
+            dm_trans_tmp.data(), matrix_dist.desc(),
             beta,
-            dm_trans.data<std::complex<double>>(), one, one, matrix_dist.desc());
+            dm_trans.data<std::complex<double>>(), matrix_dist.desc());
 
     return dm_trans;
 }
