@@ -28,6 +28,9 @@
  *     - matches the ScaLAPACK Crank-Nicolson, 4th-order Taylor and ETRS
  *       propagators on ABACUS block-cyclic layouts with uneven blocks and
  *       swapped grids, on the CPU and (when available) the GPU backend.
+ *     - as in an LCAO run, a block size that would leave a process without a
+ *       block of H and S falls back to 1 (LCAO_domain::init_basis_lcao); the
+ *       propagators require every process to hold a block.
  */
 
 namespace
@@ -127,7 +130,12 @@ TEST_P(PropagatorDdlaTest, MatchesScalapack)
     const bool use_gpu = std::get<4>(GetParam());
 
     Parallel_Orbitals pv;
-    pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
+    int no_block = pv.para_2d().init(nlocal, nlocal, nb, MPI_COMM_WORLD, swap_grid);
+    MPI_Allreduce(MPI_IN_PLACE, &no_block, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    if (no_block != 0)
+    {
+        pv.para_2d().set(nlocal, nlocal, 1, pv.para_2d().ictxt());
+    }
     const BlockCyclicDistribution& dist = pv.para_2d();
     ModuleBase::DdlaContext ddla;
     ddla.bind(dist, use_gpu);
