@@ -39,6 +39,20 @@ const DdlaContext* gpu_backend(const DdlaContext* ddla)
     return nullptr;
 }
 
+const DdlaContext* bound_backend(const DdlaContext* ddla, const BlockCyclicDistribution& dist)
+{
+#ifdef __DDLA
+    if (ddla != nullptr && ddla->is_bound() && ddla->ictxt() == dist.ictxt())
+    {
+        return ddla;
+    }
+#else
+    (void)ddla;
+    (void)dist;
+#endif
+    return nullptr;
+}
+
 #ifdef __MPI
 namespace
 {
@@ -838,6 +852,20 @@ ResidentLU<T>::ResidentLU(ResidentMatrix<T>& matrix)
 }
 template <typename T> ResidentLU<T>::~ResidentLU() = default;
 template <typename T> int ResidentLU<T>::info() const { return impl_->status; }
+template <typename T>
+void ResidentLU<T>::copy_pivots_to_host(std::vector<int>& pivots) const
+{
+#ifdef __DDLA
+    const ddla::DdlaHandle_t& handle = impl_->matrix.context()->handle();
+    pivots.resize(impl_->pivots->size());
+    ddla::DDLA_CHECK(ddla::ddlaMemcpy(handle, pivots.data(), impl_->pivots->data(), pivots.size() * sizeof(int)));
+    ddla::DDLA_CHECK(ddla::ddlaSynchronize(handle));
+#else
+    (void)pivots;
+    quit_without_ddla("ResidentLU::copy_pivots_to_host");
+#endif
+}
+
 template <typename T>
 void ResidentLU<T>::solve(char side, int nrhs, ResidentMatrix<T>& rhs) const
 {

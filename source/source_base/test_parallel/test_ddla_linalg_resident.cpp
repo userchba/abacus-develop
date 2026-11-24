@@ -215,6 +215,63 @@ class DdlaResidentTest : public testing::TestWithParam<std::tuple<int, bool, int
         return s;
     }
 
+    template <typename T> void determinant_pivots()
+    {
+        if (selected == nullptr) { GTEST_SKIP() << "LU pivot extraction selects an explicit DDLA backend"; }
+        const BlockCyclicDistribution& dist = pv.para_2d();
+        const std::size_t capacity = std::max<std::size_t>(dist.size(), 1);
+        std::vector<T> factors(capacity, T(0.0));
+        for (int col = 0; col < dist.ncloc(); ++col)
+        {
+            const int global_col = dist.icglb(col);
+            int nonzero_row = global_col;
+            if (global_col == 0) { nonzero_row = n - 1; }
+            if (global_col == n - 1) { nonzero_row = 0; }
+            const int next = global_col + 1;
+            const T value = T(next) + entry<T>(global_col, next);
+            for (int row = 0; row < dist.nrloc(); ++row)
+            {
+                if (dist.irglb(row) == nonzero_row)
+                {
+                    factors[col * dist.nrloc() + row] = value;
+                }
+            }
+        }
+        ResidentMatrix<T> matrix(selected, factors.data(), dist.desc(), true);
+        ModuleBase::ddla_linalg::ResidentLU<T> lu(matrix);
+        ASSERT_EQ(lu.info(), 0);
+        std::vector<int> pivots;
+        lu.copy_pivots_to_host(pivots);
+        matrix.copy_to_host(factors.data());
+        std::vector<T> diagonal(n, T(0.0));
+        std::vector<double> global_pivots(n, 0.0);
+        for (int i = 0; i < n; ++i)
+        {
+            if (dist.in_this_processor(i, i))
+            {
+                const int row = dist.irloc(i);
+                const int col = dist.icloc(i);
+                diagonal[i] = factors[col * dist.nrloc() + row];
+                global_pivots[i] = pivots[row];
+            }
+        }
+        Parallel_Reduce::reduce_all(diagonal.data(), n);
+        Parallel_Reduce::reduce_all(global_pivots.data(), n);
+        T determinant(1.0);
+        T reference(-1.0);
+        for (int i = 0; i < n; ++i)
+        {
+            const int next = i + 1;
+            determinant *= diagonal[i];
+            if (global_pivots[i] != next) { determinant = -determinant; }
+            reference *= T(next) + entry<T>(i, next);
+            EXPECT_GE(global_pivots[i], 1.0);
+            EXPECT_LE(global_pivots[i], n);
+        }
+        const double tolerance = 1.0e-11 * std::max(1.0, std::abs(reference));
+        EXPECT_LT(std::abs(determinant - reference), tolerance);
+    }
+
     Parallel_Orbitals pv;
     const ModuleBase::DdlaContext* selected = nullptr;
     bool on_gpu = false;
@@ -231,6 +288,8 @@ TEST_P(DdlaResidentTest, OffsetReal) { offset<double>(); }
 TEST_P(DdlaResidentTest, OffsetComplex) { offset<Complex>(); }
 TEST_P(DdlaResidentTest, SolveReal) { solve<double>(); }
 TEST_P(DdlaResidentTest, SolveComplex) { solve<Complex>(); }
+TEST_P(DdlaResidentTest, DeterminantPivotsReal) { determinant_pivots<double>(); }
+TEST_P(DdlaResidentTest, DeterminantPivotsComplex) { determinant_pivots<Complex>(); }
 
 #ifdef __DDLA
 #if DDLA_HAS_GPU

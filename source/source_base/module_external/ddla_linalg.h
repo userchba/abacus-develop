@@ -29,6 +29,10 @@ struct Scalar
 //! ScaLAPACK.
 const DdlaContext* gpu_backend(const DdlaContext* ddla);
 
+//! A borrowed context can be supplied before its first bind. Operators use it
+//! only after it is bound to their exact BLACS grid; otherwise they stay native.
+const DdlaContext* bound_backend(const DdlaContext* ddla, const BlockCyclicDistribution& dist);
+
 #ifdef __MPI
 //! Explicit lifetime of a local block in the selected backend. A CPU/native
 //! matrix borrows host storage; a GPU matrix uploads once. Intermediates have
@@ -72,6 +76,8 @@ class ResidentLU
     ResidentLU(const ResidentLU&) = delete;
     ResidentLU& operator=(const ResidentLU&) = delete;
     int info() const;
+    //! Read pivot control data for host consumers without moving the factors.
+    void copy_pivots_to_host(std::vector<int>& pivots) const;
     void solve(char side, int nrhs, ResidentMatrix<T>& rhs) const;
 
   private:
