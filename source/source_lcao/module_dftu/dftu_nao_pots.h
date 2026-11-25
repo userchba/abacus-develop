@@ -8,6 +8,8 @@
 class Plus_U_Base;
 class UnitCell;
 class Parallel_Orbitals;
+class BlockCyclicDistribution;
+namespace ModuleBase { class DdlaContext; }
 
 namespace DFTU_LCAO {
 
@@ -153,6 +155,22 @@ void cal_pot_uterm(Plus_U_Base& dftu,
                    const int spin,
                    T* pot_uterm,
                    const T* sk);
+
+template <typename T>
+void cal_pot_uterm(Plus_U_Base& dftu,
+                   const UnitCell& ucell,
+                   const Parallel_Orbitals* pv,
+                   const int spin,
+                   T* pot_uterm,
+                   const T* sk,
+                   const ModuleBase::DdlaContext* ddla);
+
+/// Matrix-only U term, preserving the legacy nonconjugate transpose:
+/// output = 0.5 * (V*S + (V*S)^T). The native path reuses onsite as workspace.
+template <typename T>
+void cal_pot_uterm(std::vector<T>& onsite, const T* overlap, T* output,
+                   const BlockCyclicDistribution& dist,
+                   const ModuleBase::DdlaContext* ddla);
 
 // Explicit instantiations
 extern template void cal_pot_uterm<double>(Plus_U_Base& dftu,

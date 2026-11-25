@@ -32,6 +32,8 @@ struct Exx_Info;
 // Input_para forward declaration, full definition in input_parameter.h
 struct Input_para;
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace hamilt
 {
 
@@ -68,6 +70,24 @@ class HamiltLCAO : public Hamilt<TK>
                const Input_para& inp,
                const bool load_exx_flag,
                TD_info* td_info);
+
+    HamiltLCAO(const UnitCell& ucell,
+               const Grid_Driver& grid_d,
+               const Parallel_Orbitals* paraV,
+               elecstate::Potential* pot_in,
+               const K_Vectors& kv_in,
+               const TwoCenterBundle& two_center_bundle,
+               const LCAO_Orbitals& orb,
+               module_dm::DensityMatrix<TK, double>* DM_in,
+               Plus_U_Base* p_dftu, // mohan add 2025-11-05
+               Setup_DeePKS<TK> &deepks,
+               const int istep,
+               Exx_NAO<TK> &exx_nao,
+               const Exx_Info& exx_info,
+               const Input_para& inp,
+               const bool load_exx_flag,
+               TD_info* td_info,
+               const ModuleBase::DdlaContext* ddla);
 
     /**
      * @brief Constructor of vacuum Operators, only HR and SR will be initialed as empty HContainer

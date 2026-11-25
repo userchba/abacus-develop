@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_pw/module_pwdft/dftu_base.h"
 #include "dftu_nao_pots.h"
 
@@ -142,51 +143,71 @@ void DFTU_LCAO::cal_pot_uterm(Plus_U_Base& dftu,
                               T* pot_uterm,
                               const T* sk)
 {
+    cal_pot_uterm(dftu, ucell, pv, spin, pot_uterm, sk, nullptr);
+}
+
+template <typename T>
+void DFTU_LCAO::cal_pot_uterm(Plus_U_Base& dftu,
+                              const UnitCell& ucell,
+                              const Parallel_Orbitals* pv,
+                              const int spin,
+                              T* pot_uterm,
+                              const T* sk,
+                              const ModuleBase::DdlaContext* ddla)
+{
     ModuleBase::TITLE("DFTU_LCAO", "cal_pot_uterm");
     ModuleBase::timer::start("DFTU_LCAO", "cal_pot_uterm");
-
-    const int nlocal = pv->para_2d().nrglb();
     std::fill(pot_uterm, pot_uterm + pv->para_2d().size(), T(0));
-
-    //=============================================================
-    //   PART2: call pblas to calculate effective potential matrix
-    //=============================================================
-    const char transN = 'N';
-    const char transT = 'T';
-    const int one_int = 1;
-    const T half = static_cast<T>(0.5);
-    const T one = static_cast<T>(1.0);
-    const T zero = static_cast<T>(0.0);
-
-    std::vector<T> pot_onsite(pv->para_2d().size());
-    DFTU_LCAO::cal_pot_onsite(dftu, ucell, pv, spin, true, &pot_onsite[0]);
-
-#ifdef __MPI
-    ScalapackConnector::gemm(transN, transN,
-            nlocal, nlocal, nlocal,
-            half,
-            ModuleBase::GlobalFunc::VECTOR_TO_PTR(pot_onsite), one_int, one_int, pv->para_2d().desc(),
-            sk, one_int, one_int, pv->para_2d().desc(),
-            zero,
-            pot_uterm, one_int, one_int, pv->para_2d().desc());
-#endif
-
-    for (int irc = 0; irc < pv->para_2d().size(); irc++)
-    {
-        pot_onsite[irc] = pot_uterm[irc];
-    }
-
-#ifdef __MPI
-    ScalapackConnector::tranu(nlocal, nlocal,
-            one,
-            &pot_onsite[0], one_int, one_int, pv->para_2d().desc(),
-            one,
-            pot_uterm, one_int, one_int, pv->para_2d().desc());
-#endif
-
+    std::vector<T> onsite(pv->para_2d().size());
+    cal_pot_onsite(dftu, ucell, pv, spin, true, onsite.data());
+    cal_pot_uterm(onsite, sk, pot_uterm, pv->para_2d(), ddla);
     ModuleBase::timer::end("DFTU_LCAO", "cal_pot_uterm");
-    return;
 }
+
+template <typename T>
+void DFTU_LCAO::cal_pot_uterm(std::vector<T>& onsite, const T* overlap, T* output,
+                              const BlockCyclicDistribution& dist,
+                              const ModuleBase::DdlaContext* ddla)
+{
+#ifdef __MPI
+    const int n = dist.nrglb();
+    const T half = T(0.5);
+    const T one = T(1.0);
+    const T zero = T(0.0);
+    const ModuleBase::DdlaContext* selected = ModuleBase::ddla_linalg::bound_backend(ddla, dist);
+    if (selected != nullptr)
+    {
+        using ModuleBase::ddla_linalg::ResidentMatrix;
+        const ResidentMatrix<T> v(selected, onsite.data(), dist.desc());
+        const ResidentMatrix<T> s(selected, overlap, dist.desc());
+        ResidentMatrix<T> product(selected, dist.desc());
+        ResidentMatrix<T> result(selected, output, dist.desc(), false);
+        ModuleBase::ddla_linalg::gemm('N', 'N', n, n, n, half, v, s, zero, product);
+        ModuleBase::ddla_linalg::geadd('T', n, n, one, product, zero, result);
+        ModuleBase::ddla_linalg::geadd('N', n, n, one, product, one, result);
+        result.copy_to_host(output);
+    }
+    else
+    {
+        const int first = 1;
+        const char no_transpose = 'N';
+        ScalapackConnector::gemm(no_transpose, no_transpose, n, n, n, half,
+                                 onsite.data(), first, first, dist.desc(),
+                                 overlap, first, first, dist.desc(), zero,
+                                 output, first, first, dist.desc());
+        for (std::size_t i = 0; i < dist.size(); ++i) { onsite[i] = output[i]; }
+        ScalapackConnector::tranu(n, n, one, onsite.data(), first, first, dist.desc(),
+                                  one, output, first, first, dist.desc());
+    }
+#else
+    (void)onsite;
+    (void)overlap;
+    (void)output;
+    (void)dist;
+    (void)ddla;
+#endif
+}
+
 
 // Explicit instantiation
 template void DFTU_LCAO::cal_pot_uterm<double>(Plus_U_Base& dftu,
@@ -201,6 +222,15 @@ template void DFTU_LCAO::cal_pot_uterm<std::complex<double>>(Plus_U_Base& dftu,
                                                              const int spin,
                                                              std::complex<double>* pot_uterm,
                                                              const std::complex<double>* sk);
+
+template void DFTU_LCAO::cal_pot_uterm<double>(Plus_U_Base&, const UnitCell&,
+    const Parallel_Orbitals*, const int, double*, const double*, const ModuleBase::DdlaContext*);
+template void DFTU_LCAO::cal_pot_uterm<std::complex<double>>(Plus_U_Base&, const UnitCell&,
+    const Parallel_Orbitals*, const int, std::complex<double>*, const std::complex<double>*, const ModuleBase::DdlaContext*);
+template void DFTU_LCAO::cal_pot_uterm<double>(std::vector<double>&, const double*, double*,
+    const BlockCyclicDistribution&, const ModuleBase::DdlaContext*);
+template void DFTU_LCAO::cal_pot_uterm<std::complex<double>>(std::vector<std::complex<double>>&,
+    const std::complex<double>*, std::complex<double>*, const BlockCyclicDistribution&, const ModuleBase::DdlaContext*);
 
 double DFTU_LCAO::get_onsite_pot(const Plus_U_Base& dftu,
                                  const int T,

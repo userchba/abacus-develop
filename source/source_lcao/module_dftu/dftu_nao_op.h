@@ -20,6 +20,8 @@ template <typename TK, typename TR>
 class DensityMatrix;
 } // namespace module_dm
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace hamilt
 {
 
@@ -70,7 +72,12 @@ class DFTU_onsite<OperatorLCAO<TK, TR>> : public OperatorLCAO<TK, TR>
     /// unsymmetrized DMR (previous behavior).
     void set_kv(const K_Vectors* kv_in) { this->kv_ = kv_in; }
 
+    /// Borrowed from the solver; numerical calls check its binding/grid.
+    void set_ddla_context(const ModuleBase::DdlaContext* ddla) { ddla_context_ = ddla; }
+
   private:
+    const ModuleBase::DdlaContext* ddla_context_ = nullptr;
+
     bool should_restore_symmetric_dmr() const;
 
     void ensure_symmetry_rotation(const Parallel_Orbitals& pv);

@@ -4,6 +4,8 @@
 #include "source_lcao/module_operator_lcao/operator_lcao.h"
 #include "source_pw/module_pwdft/dftu_base.h" // mohan add 20251107
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace hamilt
 {
 
@@ -33,7 +35,12 @@ class DFTU_firstzeta<OperatorLCAO<TK, TR>> : public OperatorLCAO<TK, TR>
 
     virtual void contributeHk(int ik) override;
 
+    /// Borrowed from the solver; numerical calls check its binding/grid.
+    void set_ddla_context(const ModuleBase::DdlaContext* ddla) { ddla_context_ = ddla; }
+
   private:
+    const ModuleBase::DdlaContext* ddla_context_ = nullptr;
+
 
     Plus_U_Base *dftu;
 

@@ -233,6 +233,10 @@ void ESolver_KS_LCAO<TK, TR>::before_scf(UnitCell& ucell, const int istep, const
     if (this->p_hamilt == nullptr)
     {
         const bool load_exx_flag = !GlobalC::restart.info_load.restart_exx && GlobalC::restart.info_load.load_H;
+        const ModuleBase::DdlaContext* operator_ddla = nullptr;
+#ifdef __DDLA
+        operator_ddla = &this->ddla_ctx_;
+#endif
         this->p_hamilt = new hamilt::HamiltLCAO<TK, TR>(ucell,
                                                         this->gd,
                                                         &this->pv,
@@ -248,7 +252,8 @@ void ESolver_KS_LCAO<TK, TR>::before_scf(UnitCell& ucell, const int istep, const
                                                         this->exx_info_,
                                                         *this->inp_,
                                                         load_exx_flag,
-                                                        this->get_td_info());
+                                                        this->get_td_info(),
+                                                        operator_ddla);
     }
 
     // 7) for each ionic step, the overlap <phi|alpha> must be rebuilt
@@ -705,6 +710,7 @@ void ESolver_KS_LCAO<TK, TR>::iter_finish(UnitCell& ucell, const int istep, int&
     // below do not each re-enter the global dependency surface.
     const std::string& global_out_dir = PARAM.globalv.global_out_dir;
     const bool gamma_only_local = PARAM.globalv.gamma_only_local;
+    const ModuleBase::DdlaContext* ddla = this->bound_ddla();
     finish_dftu_lcao<TK>(conv_esolver,
                          this->inp_->dft_plus_u,
                          this->dftu_.get(),
@@ -714,7 +720,8 @@ void ESolver_KS_LCAO<TK, TR>::iter_finish(UnitCell& ucell, const int istep, int&
                          this->p_chgmix->get_mixing_beta(),
                          hamilt_lcao,
                          this->inp_->nspin,
-                         gamma_only_local);
+                         gamma_only_local,
+                         ddla);
 
     // mohan add 2025-11: push DFT+U energy from Plus_U_Base to ElecState.
     // Covers both dft_plus_u==1 (new method, energy accumulated by DFTU_onsite::contributeHR

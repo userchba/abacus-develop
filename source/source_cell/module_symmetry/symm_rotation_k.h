@@ -5,6 +5,8 @@
 #include "source_base/complexmatrix.h"
 #include "source_cell/module_symmetry/symm_rot_spin.h"
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleSymmetry
 {
     /// @brief k-space AO-representation symmetry restoration: reconstructs D(k) at every
@@ -81,11 +83,25 @@ namespace ModuleSymmetry
         std::vector<std::vector<std::complex<double>>>restore_dm(const K_Vectors& kv,
             const std::vector<std::vector<std::complex<double>>>& dm_k_ibz,
             const BlockCyclicDistribution& pv)const;
+        // Explicit optional backend for the complete matrix-product chain.
+        std::vector<std::vector<std::complex<double>>>restore_dm(const K_Vectors& kv,
+            const std::vector<std::vector<std::complex<double>>>& dm_k_ibz,
+            const BlockCyclicDistribution& pv,
+            const ModuleBase::DdlaContext* ddla)const;
         std::vector<std::vector<double>>restore_dm(const K_Vectors& kv,
             const std::vector<std::vector<double>>& dm_k_ibz,
             const BlockCyclicDistribution& pv)const;
+        // Explicit optional backend for the complete matrix-product chain.
+        std::vector<std::vector<double>>restore_dm(const K_Vectors& kv,
+            const std::vector<std::vector<double>>& dm_k_ibz,
+            const BlockCyclicDistribution& pv,
+            const ModuleBase::DdlaContext* ddla)const;
         std::vector<std::complex<double>> rot_matrix_ao(const std::vector<std::complex<double>>& DMkibz,
             const int ik_ibz, const int kstar_size, const int isym, const BlockCyclicDistribution& pv, const bool TRS_conj = false) const;
+        // Explicit optional backend for the complete matrix-product chain.
+        std::vector<std::complex<double>> rot_matrix_ao(const std::vector<std::complex<double>>& DMkibz,
+            const int ik_ibz, const int kstar_size, const int isym, const BlockCyclicDistribution& pv, const bool TRS_conj,
+            const ModuleBase::DdlaContext* ddla) const;
 
         /// (nspin=4) build the 2*nao spin operator Sigma_y = I_nao (x) sigma_y in 2d-block layout.
         std::vector<std::complex<double>> set_sigma_y_2d(const BlockCyclicDistribution& pv) const;
@@ -95,6 +111,10 @@ namespace ModuleSymmetry
         /// space-group-rotated D(-k) stored in the transposed 2d-block convention).
         std::vector<std::complex<double>> trs_spin_rotate(const std::vector<std::complex<double>>& X,
             const std::vector<std::complex<double>>& sigma_y, const BlockCyclicDistribution& pv, const double scale) const;
+        // Explicit optional backend for the complete matrix-product chain.
+        std::vector<std::complex<double>> trs_spin_rotate(const std::vector<std::complex<double>>& X,
+            const std::vector<std::complex<double>>& sigma_y, const BlockCyclicDistribution& pv, const double scale,
+            const ModuleBase::DdlaContext* ddla) const;
 
         /// calculate Wigner D matrix
         double wigner_d(const double beta, const int l, const int m1, const int m2) const;

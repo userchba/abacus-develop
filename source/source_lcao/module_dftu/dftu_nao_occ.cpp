@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "dftu_nao_occ.h"
 #include "source_pw/module_pwdft/dftu_base.h"
 #include "dftu_nao_folding.h"
@@ -134,7 +135,8 @@ void acc_over_kstar(OccupationMatrix& occmat,
                                const int ik_ibz,
                                const int spin,
                                const int nspin,
-                               const std::vector<int>& l_channel)
+                               const std::vector<int>& l_channel,
+                               const ModuleBase::DdlaContext* ddla)
 {
     const int nsym = ucell.symm.nrotk;
     const size_t kstar_size = kv.kstars[ik_ibz].size();
@@ -145,7 +147,9 @@ void acc_over_kstar(OccupationMatrix& occmat,
         std::vector<std::complex<double>> srho_rot;
         if (isym < nsym)
         { // unitary space-group operation (isym==0 is the identity)
-            srho_rot = dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym, pv.para_2d());
+            srho_rot = dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym, pv.para_2d(),
+                                                     false,
+                                                     ddla);
         }
         else
         { // antiunitary element: TRS * (spatial operation), see restore_dm
@@ -154,12 +158,15 @@ void acc_over_kstar(OccupationMatrix& occmat,
             {
                 if (sigma_y.empty()) { sigma_y = dftu_occ_symrot.set_sigma_y_2d(pv.para_2d()); }
                 srho_rot = dftu_occ_symrot.trs_spin_rotate(
-                    dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym_M, pv.para_2d(), false),
-                    sigma_y, pv.para_2d(), 1.0);
+                    dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym_M, pv.para_2d(), false,
+                                                  ddla),
+                    sigma_y, pv.para_2d(), 1.0,
+                    ddla);
             }
             else
             {
-                srho_rot = dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym_M, pv.para_2d(), true);
+                srho_rot = dftu_occ_symrot.rot_matrix_ao(srho_ibz, ik_ibz, kstar_size, isym_M, pv.para_2d(), true,
+                                                         ddla);
             }
         }
         acc_for_ik(occmat, ucell, pv, srho_rot.data(), spin, l_channel);
@@ -330,7 +337,8 @@ void cal_occ_mat_k(const Parallel_Orbitals* pv,
                    hamilt::Hamilt<std::complex<double>>* p_ham,
                    const bool gamma_only_local,
                    Plus_U_Base& dftu,
-                   const std::string& ks_solver)
+                   const std::string& ks_solver,
+                   const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("DFTU_LCAO", "cal_occ_mat_k");
     ModuleBase::timer::start("DFTU_LCAO", "cal_occ_mat_k");
@@ -388,24 +396,18 @@ void cal_occ_mat_k(const Parallel_Orbitals* pv,
         }
 
 #ifdef __MPI
-        ScalapackConnector::gemm(transN,
+        ModuleBase::ddla_linalg::gemm(ddla,transN,
             transT,
             nlocal,
             nlocal,
             nlocal,
             alpha,
             s_k_pointer,
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0],
             dm_k[ik].data(),
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0],
             beta,
             srho.data(),
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0]);
 #endif
 
@@ -419,7 +421,8 @@ void cal_occ_mat_k(const Parallel_Orbitals* pv,
             // per-spin ibz range (mirrors RI_2D_Comm::split_m2D_ktoR_k's
             // "ik % ik_list.size()", but on the global index rather than the local one).
             const int ik_ibz = kv.ik2iktot[ik] % static_cast<int>(kv.kstars.size());
-            acc_over_kstar(dftu.occmat(), ucell, *pv, kv, srho, ik_ibz, spin, nspin, l_channel);
+            acc_over_kstar(dftu.occmat(), ucell, *pv, kv, srho, ik_ibz, spin, nspin, l_channel,
+                           ddla);
         }
         else
         {
@@ -445,7 +448,8 @@ void cal_occ_mat_gamma(const Parallel_Orbitals* pv,
                        const std::vector<std::vector<double>> &dm_gamma,
                        const double& mixing_beta,
                        hamilt::Hamilt<double>* p_ham,
-                       Plus_U_Base& dftu)
+                       Plus_U_Base& dftu,
+                       const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("DFTU_LCAO", "cal_occ_mat_gamma");
     ModuleBase::timer::start("DFTU_LCAO", "cal_occ_mat_gamma");
@@ -472,24 +476,18 @@ void cal_occ_mat_gamma(const Parallel_Orbitals* pv,
         double* s_gamma_pointer = dynamic_cast<hamilt::HamiltLCAO<double, double>*>(p_ham)->getSk();
 
 #ifdef __MPI
-        ScalapackConnector::gemm(transN,
+        ModuleBase::ddla_linalg::gemm(ddla,transN,
             transT,
             nlocal,
             nlocal,
             nlocal,
             alpha,
             s_gamma_pointer,
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0],
             dm_gamma[is].data(),
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0],
             beta,
             srho.data(),
-            one_int,
-            one_int,
             &pv->para_2d().desc()[0]);
 #endif
 
@@ -520,9 +518,11 @@ void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals* pv,
                             Plus_U_Base& dftu,
                             const bool gamma_only_local,
                             const int nspin,
-                            const std::string& ks_solver)
+                            const std::string& ks_solver,
+                            const ModuleBase::DdlaContext* ddla)
 {
-    cal_occ_mat_k(pv, ucell, dm, kv, mixing_beta, p_ham, gamma_only_local, dftu, ks_solver);
+    cal_occ_mat_k(pv, ucell, dm, kv, mixing_beta, p_ham, gamma_only_local, dftu, ks_solver,
+                  ddla);
 }
 
 //! dftu occupation matrix for gamma only using dm(double)
@@ -536,9 +536,11 @@ void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals* pv,
                             Plus_U_Base& dftu,
                             const bool gamma_only_local,
                             const int nspin,
-                            const std::string& ks_solver)
+                            const std::string& ks_solver,
+                            const ModuleBase::DdlaContext* ddla)
 {
-    cal_occ_mat_gamma(pv, ucell, dm, mixing_beta, p_ham, dftu);
+    cal_occ_mat_gamma(pv, ucell, dm, mixing_beta, p_ham, dftu,
+                      ddla);
 }
 
 template void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals*,
@@ -550,7 +552,8 @@ template void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals*,
                                      Plus_U_Base&,
                                      const bool,
                                      const int,
-                                     const std::string&);
+                                     const std::string&,
+                                     const ModuleBase::DdlaContext* ddla);
 
 template void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals*,
                                      const UnitCell&,
@@ -561,4 +564,5 @@ template void DFTU_LCAO::cal_occ_mat(const Parallel_Orbitals*,
                                      Plus_U_Base&,
                                      const bool,
                                      const int,
-                                     const std::string&);
+                                     const std::string&,
+                                     const ModuleBase::DdlaContext* ddla);

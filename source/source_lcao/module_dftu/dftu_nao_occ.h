@@ -14,6 +14,8 @@
 class Plus_U_Base;
 class OccupationMatrix;
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace DFTU_LCAO {
 
 /// @brief Compute the occupation matrix
@@ -34,7 +36,8 @@ void cal_occ_mat(const Parallel_Orbitals* pv,
                  Plus_U_Base& dftu,
                  const bool gamma_only_local,
                  const int nspin,
-                 const std::string& ks_solver);
+                 const std::string& ks_solver,
+                 const ModuleBase::DdlaContext* ddla);
 
 // calculate the local occupation number matrix (k-point version)
 //
@@ -50,7 +53,8 @@ void cal_occ_mat_k(const Parallel_Orbitals* pv,
                    hamilt::Hamilt<std::complex<double>>* p_ham,
                    const bool gamma_only_local,
                    Plus_U_Base& dftu,
-                   const std::string& ks_solver);
+                   const std::string& ks_solver,
+                   const ModuleBase::DdlaContext* ddla);
 
 // calculate the local occupation number matrix (gamma-point version)
 //
@@ -62,7 +66,8 @@ void cal_occ_mat_gamma(const Parallel_Orbitals* pv,
                        const std::vector<std::vector<double>>& dm_gamma,
                        const double& mixing_beta,
                        hamilt::Hamilt<double>* p_ham,
-                       Plus_U_Base& dftu);
+                       Plus_U_Base& dftu,
+                       const ModuleBase::DdlaContext* ddla);
 
 } // namespace DFTU_LCAO
 

@@ -29,6 +29,10 @@ addtest(
           ../../../source_base/timer.cpp)
 
 if(ENABLE_LCAO)
+  if(ENABLE_MPI)
+    include(../test_parallel/CMakeLists.txt)
+  endif()
+
   addtest(
     TARGET MODULE_IO_vxc_op_tools_test
     LIBS parameter base device

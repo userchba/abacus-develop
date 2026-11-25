@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "dftu_nao_op.h"
 
 #include "source_base/timer.h"
@@ -132,8 +133,10 @@ void hamilt::DFTU_onsite<hamilt::OperatorLCAO<TK, TR>>::contribute_from_symmetri
     const int nks_full = static_cast<int>(kvec_d_full.size());
     module_dm::DensityMatrix<TK, double> dmr_sym(&pv, nspin0, kvec_d_full, nks_full);
     dmr_sym.init_dmr(*this->dm_->get_dmr_ptr(1));
+    const ModuleBase::DdlaContext* ddla = ModuleBase::ddla_linalg::bound_backend(this->ddla_context_, pv.para_2d());
     dmr_sym.get_dmk_vec()
-        = this->symrot_.restore_dm(*this->kv_, this->dm_->get_dmk_vec(), pv.para_2d());
+        = this->symrot_.restore_dm(*this->kv_, this->dm_->get_dmk_vec(), pv.para_2d(),
+                                   ddla);
     dmr_sym.cal_dmr(-1);
 
     const hamilt::HContainer<double>* dmr = dmr_sym.get_dmr_ptr(this->current_spin + 1);

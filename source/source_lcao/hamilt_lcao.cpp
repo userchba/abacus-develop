@@ -66,6 +66,28 @@ HamiltLCAO<TK, TR>::HamiltLCAO(const UnitCell& ucell,
                                const Input_para& inp,
                                const bool load_exx_flag,
                                TD_info* td_info)
+    : HamiltLCAO(ucell, grid_d, paraV, pot_in, kv_in, two_center_bundle, orb, DM_in, p_dftu, deepks, istep, exx_nao, exx_info, inp, load_exx_flag, td_info, nullptr)
+{
+}
+
+template <typename TK, typename TR>
+HamiltLCAO<TK, TR>::HamiltLCAO(const UnitCell& ucell,
+                               const Grid_Driver& grid_d,
+                               const Parallel_Orbitals* paraV,
+                               elecstate::Potential* pot_in,
+                               const K_Vectors& kv_in,
+                               const TwoCenterBundle& two_center_bundle,
+                               const LCAO_Orbitals& orb,
+                               module_dm::DensityMatrix<TK, double>* DM_in,
+                               Plus_U_Base* p_dftu, // mohan add 2025-11-05
+                               Setup_DeePKS<TK> &deepks,
+                               const int istep,
+                               Exx_NAO<TK> &exx_nao,
+                               const Exx_Info& exx_info,
+                               const Input_para& inp,
+                               const bool load_exx_flag,
+                               TD_info* td_info,
+                               const ModuleBase::DdlaContext* ddla)
 {
     this->classname = "HamiltLCAO";
 
@@ -109,14 +131,16 @@ HamiltLCAO<TK, TR>::HamiltLCAO(const UnitCell& ucell,
     {
         bundle = build_gamma_ops<TK, TR>(ucell, grid_d, paraV, pot_in, two_center_bundle,
                                          orb, DM_in, p_dftu, deepks, inp, pot_register_in,
-                                         this->kv, this->hsk.get(), this->hR.get(), this->sR.get());
+                                         this->kv, this->hsk.get(), this->hR.get(), this->sR.get(),
+                                         ddla);
     }
     // multi-k-points case to initialize HamiltLCAO, ops will be used
     else if (std::is_same<TK, std::complex<double>>::value)
     {
         bundle = build_multik_ops<TK, TR>(ucell, grid_d, paraV, pot_in, two_center_bundle,
                                           orb, DM_in, p_dftu, deepks, inp, pot_register_in,
-                                          this->kv, this->hsk.get(), this->hR.get(), this->sR.get(), td_info);
+                                          this->kv, this->hsk.get(), this->hR.get(), this->sR.get(), td_info,
+                                          ddla);
     }
     this->getOperator() = bundle.ops;
 #ifdef __MLALGO

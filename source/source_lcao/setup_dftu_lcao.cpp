@@ -47,7 +47,8 @@ void finish_dftu_lcao(const bool conv_esolver,
                        const double mixing_beta,
                        void* hamilt_lcao,
                        int nspin,
-                       const bool gamma_only_local)
+                       const bool gamma_only_local,
+                       const ModuleBase::DdlaContext* ddla)
 {
     if (!dft_plus_u)
     {
@@ -68,7 +69,8 @@ void finish_dftu_lcao(const bool conv_esolver,
             {
                 DFTU_LCAO::cal_occ_mat(pv, ucell, dm_vec, kv, mixing_beta,
                                        static_cast<hamilt::Hamilt<TK>*>(hamilt_lcao_ptr), *dftu_ptr,
-                                       gamma_only_local, nspin, PARAM.inp.ks_solver);
+                                       gamma_only_local, nspin, PARAM.inp.ks_solver,
+                                       ddla);
             }
         }
         if (dftu_ptr->is_occmat_ready())
@@ -93,7 +95,8 @@ template void finish_dftu_lcao<double>(const bool conv_esolver,
                                         const double mixing_beta,
                                         void* hamilt_lcao,
                                         int nspin,
-                                        const bool gamma_only_local);
+                                        const bool gamma_only_local,
+                                        const ModuleBase::DdlaContext* ddla);
 
 template void finish_dftu_lcao<std::complex<double>>(const bool conv_esolver,
                                                       int dft_plus_u,
@@ -104,6 +107,7 @@ template void finish_dftu_lcao<std::complex<double>>(const bool conv_esolver,
                                                       const double mixing_beta,
                                                       void* hamilt_lcao,
                                                       int nspin,
-                                                      const bool gamma_only_local);
+                                                      const bool gamma_only_local,
+                                                      const ModuleBase::DdlaContext* ddla);
 
 } // namespace ModuleESolver

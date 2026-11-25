@@ -16,6 +16,8 @@
 #include <string>
 #include <vector>
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace hamilt
 {
 
@@ -60,7 +62,8 @@ LcaoOpsBundle<TK, TR> build_gamma_ops(const UnitCell& ucell,
                                       const K_Vectors* kv,
                                       HS_Matrix_K<TK>* hsk,
                                       HContainer<TR>* hR,
-                                      HContainer<TR>* sR);
+                                      HContainer<TR>* sR,
+                                      const ModuleBase::DdlaContext* ddla);
 
 /**
  * @brief build the operator chain for the multi-k case (TK == complex<double>).
@@ -90,7 +93,8 @@ LcaoOpsBundle<TK, TR> build_multik_ops(const UnitCell& ucell,
                                        HS_Matrix_K<TK>* hsk,
                                        HContainer<TR>* hR,
                                        HContainer<TR>* sR,
-                                       TD_info* td_info);
+                                       TD_info* td_info,
+                                       const ModuleBase::DdlaContext* ddla);
 
 } // namespace hamilt
 

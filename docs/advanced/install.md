@@ -176,6 +176,20 @@ LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic
 
 All of them run on the CPU, or on the GPUs with `device gpu`.
 
+The legacy `dft_plus_u 2` SCF occupation calculation can use the context
+selected by `ks_solver ddla` for overlap-density products and
+unitary/antiunitary symmetry rotations. Its existing force/stress restriction
+is unchanged; enabling DDLA does not restore that unsupported legacy path.
+Native choices remain available for all these operations when no DDLA context
+is selected.
+
+The legacy effective U potential also keeps its matrix product and
+nonconjugate transpose/addition on the selected backend. For `dft_plus_u 1`,
+full-BZ density symmetry restoration can use DDLA as well. Hamiltonian
+operators borrow the solver context without creating or binding a backend
+themselves: before the context is bound, or while a different k-point-pool
+grid is active, these operators retain their native path.
+
 Build LibDDLA 0.0.7 or newer with the same MPI library as ABACUS, and with GPU support if you want to use `device gpu`. `ks_solver ddla` needs a LibDDLA version that provides `phegvd`. ABACUS finds LibDDLA through the CMake package that LibDDLA installs:
 
 ```bash

@@ -45,7 +45,8 @@ void add_dftu_op(Operator<TK>*& ops,
                  const Input_para& inp,
                  const K_Vectors* kv,
                  HS_Matrix_K<TK>* hsk,
-                 HContainer<TR>* hR)
+                 HContainer<TR>* hR,
+                 const ModuleBase::DdlaContext* ddla)
 {
     Operator<TK>* plus_u = nullptr;
     if (inp.dft_plus_u == 1)
@@ -58,6 +59,7 @@ void add_dftu_op(Operator<TK>*& ops,
                                                 orb.cutoffs(), p_dftu,
                                                 inp.nspin, inp.onsite_radius, DM_in);
         static_cast<DFTU_onsite<OperatorLCAO<TK, TR>>*>(plus_u)->set_kv(kv);
+        static_cast<DFTU_onsite<OperatorLCAO<TK, TR>>*>(plus_u)->set_ddla_context(ddla);
     }
     else if (inp.dft_plus_u == 2)
     {
@@ -66,6 +68,7 @@ void add_dftu_op(Operator<TK>*& ops,
                                                         kv->kvec_d, hR,
                                                         ucell, p_dftu,
                                                         kv->isk);
+        static_cast<DFTU_firstzeta<OperatorLCAO<TK, TR>>*>(plus_u)->set_ddla_context(ddla);
     }
     else
     {
@@ -125,7 +128,8 @@ LcaoOpsBundle<TK, TR> build_gamma_ops(const UnitCell& ucell,
                                       const K_Vectors* kv,
                                       HS_Matrix_K<TK>* hsk,
                                       HContainer<TR>* hR,
-                                      HContainer<TR>* sR)
+                                      HContainer<TR>* sR,
+                                      const ModuleBase::DdlaContext* ddla)
 {
     LcaoOpsBundle<TK, TR> bundle;
 
@@ -191,7 +195,8 @@ LcaoOpsBundle<TK, TR> build_gamma_ops(const UnitCell& ucell,
     if (inp.dft_plus_u)
     {
         add_dftu_op<TK, TR>(ops, ucell, grid_d, two_center_bundle, orb, DM_in,
-                            p_dftu, inp, kv, hsk, hR);
+                            p_dftu, inp, kv, hsk, hR,
+                            ddla);
     }
 
     bundle.ops = dynamic_cast<OperatorLCAO<TK, TR>*>(ops);
@@ -215,7 +220,8 @@ LcaoOpsBundle<TK, TR> build_multik_ops(const UnitCell& ucell,
                                        HS_Matrix_K<TK>* hsk,
                                        HContainer<TR>* hR,
                                        HContainer<TR>* sR,
-                                       TD_info* td_info)
+                                       TD_info* td_info,
+                                       const ModuleBase::DdlaContext* ddla)
 {
     LcaoOpsBundle<TK, TR> bundle;
 
@@ -331,7 +337,8 @@ LcaoOpsBundle<TK, TR> build_multik_ops(const UnitCell& ucell,
     if (inp.dft_plus_u)
     {
         add_dftu_op<TK, TR>(ops, ucell, grid_d, two_center_bundle, orb, DM_in,
-                            p_dftu, inp, kv, hsk, hR);
+                            p_dftu, inp, kv, hsk, hR,
+                            ddla);
     }
     if (inp.sc_mag_switch)
     {
@@ -359,14 +366,16 @@ template LcaoOpsBundle<double, double> build_gamma_ops<double, double>(
     elecstate::Potential*, const TwoCenterBundle&, const LCAO_Orbitals&,
     module_dm::DensityMatrix<double, double>*, Plus_U_Base*, Setup_DeePKS<double>&,
     const Input_para&, const std::vector<std::string>&, const K_Vectors*,
-    HS_Matrix_K<double>*, HContainer<double>*, HContainer<double>*);
+    HS_Matrix_K<double>*, HContainer<double>*, HContainer<double>*,
+    const ModuleBase::DdlaContext* ddla);
 
 template LcaoOpsBundle<double, double> build_multik_ops<double, double>(
     const UnitCell&, const Grid_Driver&, const Parallel_Orbitals*,
     elecstate::Potential*, const TwoCenterBundle&, const LCAO_Orbitals&,
     module_dm::DensityMatrix<double, double>*, Plus_U_Base*, Setup_DeePKS<double>&,
     const Input_para&, const std::vector<std::string>&, const K_Vectors*,
-    HS_Matrix_K<double>*, HContainer<double>*, HContainer<double>*, TD_info*);
+    HS_Matrix_K<double>*, HContainer<double>*, HContainer<double>*, TD_info*,
+    const ModuleBase::DdlaContext* ddla);
 
 template LcaoOpsBundle<std::complex<double>, double> build_gamma_ops<std::complex<double>, double>(
     const UnitCell&, const Grid_Driver&, const Parallel_Orbitals*,
@@ -374,7 +383,8 @@ template LcaoOpsBundle<std::complex<double>, double> build_gamma_ops<std::comple
     module_dm::DensityMatrix<std::complex<double>, double>*, Plus_U_Base*,
     Setup_DeePKS<std::complex<double>>&, const Input_para&,
     const std::vector<std::string>&, const K_Vectors*,
-    HS_Matrix_K<std::complex<double>>*, HContainer<double>*, HContainer<double>*);
+    HS_Matrix_K<std::complex<double>>*, HContainer<double>*, HContainer<double>*,
+    const ModuleBase::DdlaContext* ddla);
 
 template LcaoOpsBundle<std::complex<double>, double> build_multik_ops<std::complex<double>, double>(
     const UnitCell&, const Grid_Driver&, const Parallel_Orbitals*,
@@ -382,7 +392,8 @@ template LcaoOpsBundle<std::complex<double>, double> build_multik_ops<std::compl
     module_dm::DensityMatrix<std::complex<double>, double>*, Plus_U_Base*,
     Setup_DeePKS<std::complex<double>>&, const Input_para&,
     const std::vector<std::string>&, const K_Vectors*,
-    HS_Matrix_K<std::complex<double>>*, HContainer<double>*, HContainer<double>*, TD_info*);
+    HS_Matrix_K<std::complex<double>>*, HContainer<double>*, HContainer<double>*, TD_info*,
+    const ModuleBase::DdlaContext* ddla);
 
 template LcaoOpsBundle<std::complex<double>, std::complex<double>>
 build_gamma_ops<std::complex<double>, std::complex<double>>(
@@ -392,7 +403,8 @@ build_gamma_ops<std::complex<double>, std::complex<double>>(
     Setup_DeePKS<std::complex<double>>&, const Input_para&,
     const std::vector<std::string>&, const K_Vectors*,
     HS_Matrix_K<std::complex<double>>*, HContainer<std::complex<double>>*,
-    HContainer<std::complex<double>>*);
+    HContainer<std::complex<double>>*,
+    const ModuleBase::DdlaContext* ddla);
 
 template LcaoOpsBundle<std::complex<double>, std::complex<double>>
 build_multik_ops<std::complex<double>, std::complex<double>>(
@@ -402,6 +414,7 @@ build_multik_ops<std::complex<double>, std::complex<double>>(
     Setup_DeePKS<std::complex<double>>&, const Input_para&,
     const std::vector<std::string>&, const K_Vectors*,
     HS_Matrix_K<std::complex<double>>*, HContainer<std::complex<double>>*,
-    HContainer<std::complex<double>>*, TD_info*);
+    HContainer<std::complex<double>>*, TD_info*,
+    const ModuleBase::DdlaContext* ddla);
 
 } // namespace hamilt

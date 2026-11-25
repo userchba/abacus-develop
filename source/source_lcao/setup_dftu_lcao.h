@@ -7,6 +7,8 @@
 
 class LCAO_Orbitals;
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleESolver
 {
 
@@ -61,7 +63,8 @@ void finish_dftu_lcao(const bool conv_esolver,
                        const double mixing_beta,
                        void* hamilt_lcao,
                        int nspin,
-                       const bool gamma_only_local);
+                       const bool gamma_only_local,
+                       const ModuleBase::DdlaContext* ddla);
 
 } // namespace ModuleESolver
 

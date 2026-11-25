@@ -1,4 +1,5 @@
 #include "symm_rotation_k.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_base/constants.h"
 #include <cmath>
 #include "source_base/parallel_reduce.h"
@@ -135,96 +136,7 @@ namespace ModuleSymmetry
     std::vector<std::vector<std::complex<double>>> Symmetry_rotation_k::restore_dm(const K_Vectors& kv,
         const std::vector<std::vector<std::complex<double>>>& dm_k_ibz, const BlockCyclicDistribution& pv)const
     {
-        ModuleBase::TITLE("Symmetry_rotation_k", "restore_dm");
-        ModuleBase::timer::start("Symmetry_rotation_k", "restore_dm");
-        std::vector<std::vector<std::complex<double>>> dm_k_full;
-        int nspin0 = this->nspin_ == 2 ? 2 : 1;
-        // (k-point pools, KPAR>1) dm_k_ibz (module_dm::DensityMatrix::dmk) only ever holds
-        // the irreducible k-points owned by THIS pool (_nk = kv.get_nks()/nspin, see
-        // allocate_dm.cpp), never the global set -- so nk here must be the local count, and
-        // kv.kstars (which is global, identical on every pool) must be indexed via the
-        // local-to-global map kv.ik2iktot, not via the local loop variable directly.
-        // This is safe: D(k) -> D(R) (or, for DFT+U, the occupation matrix built from it)
-        // is a linear sum over k, so each pool returning only the stars of its own local
-        // irreducible k-points, to be combined by the caller's existing cross-pool
-        // reduction (e.g. compute_occ_from_dmr's Parallel_Reduce::reduce_all), gives the
-        // exact same total as if every pool held the full global k-set -- no pool needs
-        // (or has to pay for gathering) the complete global D(k) at any point.
-        int nk = kv.get_nks() / nspin0;
-        const int nks_ibz_global = static_cast<int>(this->little_groups_.size());
-
-        // (nspin=4) Sigma_y = I (x) sigma_y for the time-reversal spin flip; k-independent, build once.
-        std::vector<std::complex<double>> sigma_y;
-        if (this->nspin_ == 4) { sigma_y = this->set_sigma_y_2d(pv); }
-
-        for (int is = 0;is < nspin0;++is)
-        {
-            for (int ik_local = 0;ik_local < nk;++ik_local)
-            {
-                const int ik_ibz = kv.ik2iktot[ik_local + is * nk] % nks_ibz_global;
-                // P_k D = |G_k|^{-1} sum_g M_g^T D M_g^*. This preserves
-                // Hermiticity and makes restoration independent of the chosen
-                // star representative; rotating just one arbitrary D does not.
-                const std::vector<int>& little_group = this->little_groups_.at(ik_ibz);
-                assert(!little_group.empty());
-                std::vector<std::complex<double>> projected = dm_k_ibz[ik_local + is * nk];
-                if (little_group.size() > 1)
-                {
-                    std::fill(projected.begin(), projected.end(), 0.0);
-                    for (const int op : little_group)
-                    {
-                        const std::vector<std::complex<double>> rotated = this->rot_matrix_ao(
-                            dm_k_ibz[ik_local + is * nk], ik_ibz, little_group.size(), op, pv);
-                        for (size_t i = 0; i < projected.size(); ++i)
-                        {
-                            projected[i] += rotated[i];
-                        }
-                    }
-                }
-                for (const std::pair<const int, ModuleBase::Vector3<double>>& isym_kvd : kv.kstars[ik_ibz])
-                {
-                    if (isym_kvd.first == 0)
-                    {
-                        double factor = 1.0 / static_cast<double>(kv.kstars[ik_ibz].size());
-                        std::vector<std::complex<double>> dm_scaled(pv.size());
-                        for (int i = 0;i < pv.size();++i) { dm_scaled[i] = factor * projected[i]; }
-                        dm_k_full.push_back(dm_scaled);
-                    }
-                    else if (isym_kvd.first < nsym_)
-                    { //space group operations
-                        dm_k_full.push_back(this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_kvd.first, pv));
-                    }
-                    else
-                    {    // antiunitary elements: Theta * (spatial operation)
-                        // D(Theta*g k_ibz) = sigma_y [D(g k_ibz)]^* sigma_y with D(g k_ibz) = M^dagger D M.
-                        // For nspin=4, first do the (non-conjugated) spatial rotation, then the spin flip;
-                        // for nspin<4 (Theta=K) the original TRS_conj path already gives the conjugate.
-                        //
-                        // Which spatial operation the index denotes depends on the regime, matching
-                        // how the k-reduction filled kgmatrix[] (see K_Vectors::reduce_by_symmetry):
-                        //  - nspin=4 magnetic (Shubnikov): index j+nsym_ is the antiunitary element
-                        //    Theta*gmatrix_anti[j]; its Ms is stored under the RAW key j+nsym_.
-                        //  - otherwise (grey group / nspin<4): index i+nsym_ is Theta*gmatrix[i],
-                        //    i.e. the unitary operation i, whose Ms is stored under key i.
-                        const int isym_M = this->magnetic_nspin4_ ? isym_kvd.first : (isym_kvd.first - nsym_);
-                        if (this->nspin_ == 4)
-                        {
-                            // m=0: gray group: the space-group part of anti-unitary elements are the same of the unitary elements, isym_M < nsym_
-                            // m!=0: Shubnikov group: using different space-group part of anti-unitary elements stored in gmatrix_anti with isym_M >= nsym_
-                            dm_k_full.push_back(this->trs_spin_rotate(
-                                this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_M, pv, false),
-                                sigma_y, pv, 1.0));
-                        }
-                        else
-                        {
-                            dm_k_full.push_back(this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_M, pv, true));
-                        }
-                    }
-                }
-            }
-        }
-        ModuleBase::timer::end("Symmetry_rotation_k", "restore_dm");
-        return dm_k_full;
+        return this->restore_dm(kv, dm_k_ibz, pv, nullptr);
     }
     std::vector<std::vector<double>> Symmetry_rotation_k::restore_dm(const K_Vectors& kv,
         const std::vector<std::vector<double>>& dm_k_ibz, const BlockCyclicDistribution& pv)const
@@ -613,4 +525,188 @@ namespace ModuleSymmetry
 #endif
         return out;
     }
+    std::vector<std::vector<std::complex<double>>> Symmetry_rotation_k::restore_dm(const K_Vectors& kv,
+        const std::vector<std::vector<std::complex<double>>>& dm_k_ibz, const BlockCyclicDistribution& pv,
+        const ModuleBase::DdlaContext* ddla)const
+    {
+        ModuleBase::TITLE("Symmetry_rotation_k", "restore_dm");
+        ModuleBase::timer::start("Symmetry_rotation_k", "restore_dm");
+        std::vector<std::vector<std::complex<double>>> dm_k_full;
+        int nspin0 = this->nspin_ == 2 ? 2 : 1;
+        // (k-point pools, KPAR>1) dm_k_ibz (module_dm::DensityMatrix::dmk) only ever holds
+        // the irreducible k-points owned by THIS pool (_nk = kv.get_nks()/nspin, see
+        // allocate_dm.cpp), never the global set -- so nk here must be the local count, and
+        // kv.kstars (which is global, identical on every pool) must be indexed via the
+        // local-to-global map kv.ik2iktot, not via the local loop variable directly.
+        // This is safe: D(k) -> D(R) (or, for DFT+U, the occupation matrix built from it)
+        // is a linear sum over k, so each pool returning only the stars of its own local
+        // irreducible k-points, to be combined by the caller's existing cross-pool
+        // reduction (e.g. compute_occ_from_dmr's Parallel_Reduce::reduce_all), gives the
+        // exact same total as if every pool held the full global k-set -- no pool needs
+        // (or has to pay for gathering) the complete global D(k) at any point.
+        int nk = kv.get_nks() / nspin0;
+        const int nks_ibz_global = static_cast<int>(this->little_groups_.size());
+
+        // (nspin=4) Sigma_y = I (x) sigma_y for the time-reversal spin flip; k-independent, build once.
+        std::vector<std::complex<double>> sigma_y;
+        if (this->nspin_ == 4) { sigma_y = this->set_sigma_y_2d(pv); }
+
+        for (int is = 0;is < nspin0;++is)
+        {
+            for (int ik_local = 0;ik_local < nk;++ik_local)
+            {
+                const int ik_ibz = kv.ik2iktot[ik_local + is * nk] % nks_ibz_global;
+                // P_k D = |G_k|^{-1} sum_g M_g^T D M_g^*. This preserves
+                // Hermiticity and makes restoration independent of the chosen
+                // star representative; rotating just one arbitrary D does not.
+                const std::vector<int>& little_group = this->little_groups_.at(ik_ibz);
+                assert(!little_group.empty());
+                std::vector<std::complex<double>> projected = dm_k_ibz[ik_local + is * nk];
+                if (little_group.size() > 1)
+                {
+                    std::fill(projected.begin(), projected.end(), 0.0);
+                    for (const int op : little_group)
+                    {
+                        const std::vector<std::complex<double>> rotated = this->rot_matrix_ao(
+                            dm_k_ibz[ik_local + is * nk], ik_ibz, little_group.size(), op, pv,
+                            false,
+                            ddla);
+                        for (size_t i = 0; i < projected.size(); ++i)
+                        {
+                            projected[i] += rotated[i];
+                        }
+                    }
+                }
+                for (const std::pair<const int, ModuleBase::Vector3<double>>& isym_kvd : kv.kstars[ik_ibz])
+                {
+                    if (isym_kvd.first == 0)
+                    {
+                        double factor = 1.0 / static_cast<double>(kv.kstars[ik_ibz].size());
+                        std::vector<std::complex<double>> dm_scaled(pv.size());
+                        for (int i = 0;i < pv.size();++i) { dm_scaled[i] = factor * projected[i]; }
+                        dm_k_full.push_back(dm_scaled);
+                    }
+                    else if (isym_kvd.first < nsym_)
+                    { //space group operations
+                        dm_k_full.push_back(this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_kvd.first, pv,
+                                                                false,
+                                                                ddla));
+                    }
+                    else
+                    {    // antiunitary elements: Theta * (spatial operation)
+                        // D(Theta*g k_ibz) = sigma_y [D(g k_ibz)]^* sigma_y with D(g k_ibz) = M^dagger D M.
+                        // For nspin=4, first do the (non-conjugated) spatial rotation, then the spin flip;
+                        // for nspin<4 (Theta=K) the original TRS_conj path already gives the conjugate.
+                        //
+                        // Which spatial operation the index denotes depends on the regime, matching
+                        // how the k-reduction filled kgmatrix[] (see K_Vectors::reduce_by_symmetry):
+                        //  - nspin=4 magnetic (Shubnikov): index j+nsym_ is the antiunitary element
+                        //    Theta*gmatrix_anti[j]; its Ms is stored under the RAW key j+nsym_.
+                        //  - otherwise (grey group / nspin<4): index i+nsym_ is Theta*gmatrix[i],
+                        //    i.e. the unitary operation i, whose Ms is stored under key i.
+                        const int isym_M = this->magnetic_nspin4_ ? isym_kvd.first : (isym_kvd.first - nsym_);
+                        if (this->nspin_ == 4)
+                        {
+                            // m=0: gray group: the space-group part of anti-unitary elements are the same of the unitary elements, isym_M < nsym_
+                            // m!=0: Shubnikov group: using different space-group part of anti-unitary elements stored in gmatrix_anti with isym_M >= nsym_
+                            dm_k_full.push_back(this->trs_spin_rotate(
+                                this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_M, pv, false,
+                                                    ddla),
+                                sigma_y, pv, 1.0,
+                                ddla));
+                        }
+                        else
+                        {
+                            dm_k_full.push_back(this->rot_matrix_ao(projected, ik_ibz, kv.kstars[ik_ibz].size(), isym_M, pv, true,
+                                                                    ddla));
+                        }
+                    }
+                }
+            }
+        }
+        ModuleBase::timer::end("Symmetry_rotation_k", "restore_dm");
+        return dm_k_full;
+    }
+
+    std::vector<std::vector<double>> Symmetry_rotation_k::restore_dm(const K_Vectors& kv,
+        const std::vector<std::vector<double>>& dm_k_ibz, const BlockCyclicDistribution& pv,
+        const ModuleBase::DdlaContext* ddla)const
+    {
+        return dm_k_ibz;// do nothing for gamma_only
+    }
+
+    std::vector<std::complex<double>> Symmetry_rotation_k::rot_matrix_ao(
+        const std::vector<std::complex<double>>& DMkibz, const int ik_ibz,
+        const int kstar_size, const int isym, const BlockCyclicDistribution& pv,
+        const bool TRS_conj, const ModuleBase::DdlaContext* ddla) const
+    {
+        if (ddla == nullptr)
+        {
+            return this->rot_matrix_ao(DMkibz, ik_ibz, kstar_size, isym, pv, TRS_conj);
+        }
+#ifdef __MPI
+        using Complex = std::complex<double>;
+        using ModuleBase::ddla_linalg::ResidentMatrix;
+        const std::vector<Complex>& rotation = this->Ms_[ik_ibz].at(isym);
+        std::vector<Complex> transform = rotation;
+        if (!TRS_conj)
+        {
+            for (Complex& value : transform) { value = std::conj(value); }
+        }
+        const ResidentMatrix<Complex> m(ddla, transform.data(), pv.desc());
+        const ResidentMatrix<Complex> density(ddla, DMkibz.data(), pv.desc());
+        ResidentMatrix<Complex> temporary(ddla, pv.desc());
+        std::vector<Complex> result(pv.size(), Complex(0.0, 0.0));
+        ResidentMatrix<Complex> output(ddla, result.data(), pv.desc(), false);
+        const int n = pv.nrglb();
+        const Complex one(1.0, 0.0);
+        const Complex zero(0.0, 0.0);
+        const Complex scale(1.0 / static_cast<double>(kstar_size), 0.0);
+        if (TRS_conj)
+        {
+            ModuleBase::ddla_linalg::gemm('T', 'T', n, n, n, one, m, density, zero, temporary);
+            ModuleBase::ddla_linalg::gemm('T', 'C', n, n, n, scale, m, temporary, zero, output);
+        }
+        else
+        {
+            ModuleBase::ddla_linalg::gemm('C', 'N', n, n, n, one, m, density, zero, temporary);
+            ModuleBase::ddla_linalg::gemm('N', 'N', n, n, n, scale, temporary, m, zero, output);
+        }
+        output.copy_to_host(result.data());
+        return result;
+#else
+        return this->rot_matrix_ao(DMkibz, ik_ibz, kstar_size, isym, pv, TRS_conj);
+#endif
+    }
+
+    std::vector<std::complex<double>> Symmetry_rotation_k::trs_spin_rotate(
+        const std::vector<std::complex<double>>& X,
+        const std::vector<std::complex<double>>& sigma_y,
+        const BlockCyclicDistribution& pv, const double scale,
+        const ModuleBase::DdlaContext* ddla) const
+    {
+        if (ddla == nullptr) { return this->trs_spin_rotate(X, sigma_y, pv, scale); }
+#ifdef __MPI
+        using Complex = std::complex<double>;
+        using ModuleBase::ddla_linalg::ResidentMatrix;
+        std::vector<Complex> conjugated = X;
+        for (Complex& value : conjugated) { value = std::conj(value); }
+        const ResidentMatrix<Complex> spin(ddla, sigma_y.data(), pv.desc());
+        const ResidentMatrix<Complex> density(ddla, conjugated.data(), pv.desc());
+        ResidentMatrix<Complex> temporary(ddla, pv.desc());
+        std::vector<Complex> result(pv.size(), Complex(0.0, 0.0));
+        ResidentMatrix<Complex> output(ddla, result.data(), pv.desc(), false);
+        const int n = pv.nrglb();
+        const Complex one(1.0, 0.0);
+        const Complex zero(0.0, 0.0);
+        const Complex weight(scale, 0.0);
+        ModuleBase::ddla_linalg::gemm('N', 'N', n, n, n, one, spin, density, zero, temporary);
+        ModuleBase::ddla_linalg::gemm('N', 'N', n, n, n, weight, temporary, spin, zero, output);
+        output.copy_to_host(result.data());
+        return result;
+#else
+        return this->trs_spin_rotate(X, sigma_y, pv, scale);
+#endif
+    }
+
 }

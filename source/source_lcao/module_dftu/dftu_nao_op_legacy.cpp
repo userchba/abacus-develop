@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "dftu_nao_op_legacy.h"
 #include "dftu_nao_pots.h"
 #include "source_base/timer.h"
@@ -31,7 +32,8 @@ void DFTU_firstzeta<OperatorLCAO<TK, TR>>::contributeHk(int ik)
     // Effective potential of DFT+U is added to total Hamiltonian here; Quxin adds on 20201029
     std::vector<TK> pot_uterm(this->hsk->get_pv()->para_2d().size());
 
-    DFTU_LCAO::cal_pot_uterm(*this->dftu, *this->ucell, this->hsk->get_pv(), isk[ik], &pot_uterm[0], this->hsk->get_sk());
+    DFTU_LCAO::cal_pot_uterm(*this->dftu, *this->ucell, this->hsk->get_pv(), isk[ik], pot_uterm.data(), this->hsk->get_sk(),
+                             this->ddla_context_);
 
     TK* hk = this->hsk->get_hk();
 
