@@ -1,4 +1,5 @@
 #include "vxc_op_tools.h"
+#include "source_base/module_external/ddla_linalg.h"
 
 #include "source_base/formatter.h"
 #include "source_base/module_external/scalapack_connector.h"
@@ -56,6 +57,37 @@ std::vector<T> cVc(const T* V,
 #endif
     return cVc_result;
 }
+
+template <typename T>
+std::vector<T> cVc(const T* V, const T* c, const int nbasis, const int nbands,
+                   const Parallel_Orbitals& pv, const BlockCyclicDistribution& p2d,
+                   const ModuleBase::DdlaContext* ddla)
+{
+    if (ddla == nullptr)
+    {
+        return cVc(V, c, nbasis, nbands, pv, p2d);
+    }
+#ifdef __MPI
+    using ModuleBase::ddla_linalg::ResidentMatrix;
+    const ResidentMatrix<T> potential(ddla, V, pv.para_2d().desc());
+    const ResidentMatrix<T> coefficients(ddla, c, pv.desc_wfc);
+    ResidentMatrix<T> vc(ddla, pv.desc_wfc);
+    std::vector<T> result(p2d.size(), T(0.0));
+    ResidentMatrix<T> output(ddla, result.data(), p2d.desc(), false);
+    const T one = T(1.0);
+    const T zero = T(0.0);
+    const char adjoint = std::is_same<T, double>::value ? 'T' : 'C';
+    ModuleBase::ddla_linalg::gemm('N', 'N', nbasis, nbands, nbasis,
+                                  one, potential, coefficients, zero, vc);
+    ModuleBase::ddla_linalg::gemm(adjoint, 'N', nbands, nbands, nbasis,
+                                  one, coefficients, vc, zero, output);
+    output.copy_to_host(result.data());
+    return result;
+#else
+    return cVc(V, c, nbasis, nbands, pv, p2d);
+#endif
+}
+
 
 template <typename T>
 double all_band_energy(const int ik,
@@ -152,6 +184,12 @@ std::string build_eband_header(const int istep,
 // Explicit template instantiations
 template std::vector<double> cVc<double>(const double*, const double*, const int, const int, const Parallel_Orbitals&, const BlockCyclicDistribution&);
 template std::vector<std::complex<double>> cVc<std::complex<double>>(const std::complex<double>*, const std::complex<double>*, const int, const int, const Parallel_Orbitals&, const BlockCyclicDistribution&);
+
+template std::vector<double> cVc<double>(const double*, const double*, const int, const int,
+    const Parallel_Orbitals&, const BlockCyclicDistribution&, const ModuleBase::DdlaContext*);
+template std::vector<std::complex<double>> cVc<std::complex<double>>(
+    const std::complex<double>*, const std::complex<double>*, const int, const int,
+    const Parallel_Orbitals&, const BlockCyclicDistribution&, const ModuleBase::DdlaContext*);
 
 template double all_band_energy<double>(const int, const std::vector<double>&, const BlockCyclicDistribution&, const ModuleBase::matrix&);
 template double all_band_energy<std::complex<double>>(const int, const std::vector<std::complex<double>>&, const BlockCyclicDistribution&, const ModuleBase::matrix&);

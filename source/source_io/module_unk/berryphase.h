@@ -9,13 +9,16 @@
 #include "source_psi/psi.h"
 #include "source_basis/module_ao/parallel_orbitals.h"
 
+namespace ModuleBase { class DdlaContext; }
+
 class berryphase
 {
 
   public:
     berryphase(); // for pw-line
 #ifdef __LCAO
-    berryphase(const Parallel_Orbitals* paraV_in); // for lcao-line
+    berryphase(const Parallel_Orbitals* paraV_in);
+    berryphase(const Parallel_Orbitals* paraV_in, const ModuleBase::DdlaContext* ddla); // for lcao-line
 #endif
     ~berryphase();
 
@@ -79,6 +82,8 @@ class berryphase
                                   const K_Vectors& kv);
 
     std::string outFormat(const double polarization, const double modulus, const ModuleBase::Vector3<double> project) const;
+  private:
+    const ModuleBase::DdlaContext* const ddla_;
 };
 
 #endif

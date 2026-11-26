@@ -8,6 +8,8 @@
 #include <map>
 #include <vector>
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleIO
 {
 
@@ -46,6 +48,13 @@ class Output_Mulliken
                     CellIndex* cell_index,
                     const std::vector<int>& isk,
                     int nspin);
+    Output_Mulliken(Output_Sk<TK>* output_sk,
+                    Output_DMK<TK>* output_dmk,
+                    Parallel_Orbitals* ParaV,
+                    CellIndex* cell_index,
+                    const std::vector<int>& isk,
+                    int nspin,
+                    const ModuleBase::DdlaContext* ddla);
     /// the outer interface to write the Mulliken population charges
     void write(int istep, std::string out_dir);
     /// print atom mag to running log file
@@ -94,6 +103,7 @@ class Output_Mulliken
     /******************************************************************
      * private variables
      *******************************************************************/
+    const ModuleBase::DdlaContext* const ddla_;
     Output_Sk<TK>* output_sk_ = nullptr;
     Output_DMK<TK>* output_dmk_ = nullptr;
     Parallel_Orbitals* ParaV_ = nullptr;

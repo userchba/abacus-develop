@@ -19,6 +19,8 @@
 #include <set>
 #include <vector>
 
+namespace ModuleBase { class DdlaContext; }
+
 class unkOverlap_lcao
 {
   public:
@@ -72,6 +74,15 @@ class unkOverlap_lcao
                                         const Parallel_Orbitals& para_orb,
                                         const psi::Psi<std::complex<double>>* psi_in,
                                         const K_Vectors& kv);
+    std::complex<double> det_berryphase(const UnitCell& ucell,
+                                        const int ik_L,
+                                        const int ik_R,
+                                        const ModuleBase::Vector3<double> dk,
+                                        const int occ_bands,
+                                        const Parallel_Orbitals& para_orb,
+                                        const psi::Psi<std::complex<double>>* psi_in,
+                                        const K_Vectors& kv,
+                                        const ModuleBase::DdlaContext* ddla);
 };
 
 #endif

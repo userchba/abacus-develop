@@ -32,7 +32,8 @@ void cal_mag(Parallel_Orbitals* pv,
              UnitCell& ucell,
              const Grid_Driver& gd,
              const int istep,
-             const bool print)
+             const bool print,
+             const ModuleBase::DdlaContext* ddla)
 {
     if (PARAM.inp.out_mul)
     {
@@ -44,7 +45,8 @@ void cal_mag(Parallel_Orbitals* pv,
         auto out_dm_k = ModuleIO::Output_DMK<TK>(dm, pv, PARAM.inp.nspin, kv.get_nks());
 
         auto mulp = ModuleIO::Output_Mulliken<TK>(&(out_s_k),
-			&(out_dm_k), pv, &cell_index, kv.isk, PARAM.inp.nspin);
+			&(out_dm_k), pv, &cell_index, kv.isk, PARAM.inp.nspin,
+			ddla);
         auto atom_chg = mulp.get_atom_chg();
         ucell.atom_mulliken = mulp.get_atom_mulliken(atom_chg);
         if (print && GlobalV::MY_RANK == 0)

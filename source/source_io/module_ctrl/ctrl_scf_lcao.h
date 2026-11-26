@@ -19,6 +19,8 @@
 #include <complex>
 #include <fstream>
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleIO
 {
 // in principle, we need to add const for all of the variables, mohan note 2025-06-05
@@ -49,6 +51,7 @@ void ctrl_scf_lcao(UnitCell& ucell,
                    const bool conv_esolver,
                    const bool scf_nmax_flag,
                    const int istep,
-                   std::ofstream& ofs_running);
+                   std::ofstream& ofs_running,
+                   const ModuleBase::DdlaContext* ddla);
 } // namespace ModuleIO
 #endif

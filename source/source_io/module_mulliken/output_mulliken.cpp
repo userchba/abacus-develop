@@ -1,4 +1,5 @@
 #include "source_io/module_mulliken/output_mulliken.h"
+#include "source_base/module_external/ddla_linalg.h"
 #include "source_io/module_mulliken/output_dmk.h"
 #include "source_io/module_mulliken/output_sk.h"
 #include "source_io/module_parameter/parameter.h"
@@ -82,7 +83,19 @@ Output_Mulliken<TK>::Output_Mulliken(Output_Sk<TK>* output_sk,
                                      CellIndex* cell_index,
                                      const std::vector<int>& isk,
                                      int nspin)
-    : output_sk_(output_sk), output_dmk_(output_dmk), 
+    : Output_Mulliken(output_sk, output_dmk, ParaV, cell_index, isk, nspin, nullptr)
+{
+}
+
+template <typename TK>
+Output_Mulliken<TK>::Output_Mulliken(Output_Sk<TK>* output_sk,
+                                     Output_DMK<TK>* output_dmk,
+                                     Parallel_Orbitals* ParaV,
+                                     CellIndex* cell_index,
+                                     const std::vector<int>& isk,
+                                     int nspin,
+                                     const ModuleBase::DdlaContext* ddla)
+    : ddla_(ddla), output_sk_(output_sk), output_dmk_(output_dmk),
     ParaV_(ParaV), cell_index_(cell_index), isk_(isk), nspin_(nspin)
 {
     this->set_nspin(nspin);
@@ -609,24 +622,18 @@ void Output_Mulliken<std::complex<double>>::cal_orbMulP()
         const char N_char = 'N';
         const int one_int = 1;
         const std::complex<double> one_float = {1.0, 0.0}, zero_float = {0.0, 0.0};
-        ScalapackConnector::gemm(N_char,
+        ModuleBase::ddla_linalg::gemm(this->ddla_,N_char,
                 T_char,
                 nw,
                 nw,
                 nw,
                 one_float,
                 p_DMk,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc(),
                 p_Sk,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc(),
                 zero_float,
                 mud.c,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc());
         this->collect_MW(MecMulP, mud, nw, this->isk_[ik]);
 #endif
@@ -659,24 +666,18 @@ void Output_Mulliken<double>::cal_orbMulP()
         const char N_char = 'N';
         const int one_int = 1;
         const double one_float = 1.0, zero_float = 0.0;
-        ScalapackConnector::gemm(N_char,
+        ModuleBase::ddla_linalg::gemm(this->ddla_,N_char,
                 T_char,
                 nw,
                 nw,
                 nw,
                 one_float,
                 p_DMk,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc(),
                 p_Sk,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc(),
                 zero_float,
                 mud.c,
-                one_int,
-                one_int,
                 this->ParaV_->para_2d().desc());
         if (this->nspin_ == 1 || this->nspin_ == 2)
         {

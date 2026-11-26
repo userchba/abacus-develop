@@ -20,6 +20,8 @@ namespace ModulePW
 class PW_Basis;
 }
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleIO
 {
 
@@ -51,8 +53,8 @@ void write_eband_terms(const int nspin,
                        const ModuleBase::matrix& wg,
                        Grid_Driver& gd,
                        const std::vector<double>& orb_cutoff,
-                       const TwoCenterBundle& two_center_bundle
-);
+                       const TwoCenterBundle& two_center_bundle,
+                       const ModuleBase::DdlaContext* ddla);
 
 } // namespace ModuleIO
 

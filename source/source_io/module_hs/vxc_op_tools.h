@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleIO
 {
 
@@ -48,6 +50,16 @@ std::vector<T> cVc(const T* V,
                    const int nbands,
                    const Parallel_Orbitals& pv,
                    const BlockCyclicDistribution& p2d);
+
+// Explicit optional backend; nullptr preserves the native implementation.
+template <typename T>
+std::vector<T> cVc(const T* V,
+                   const T* c,
+                   const int nbasis,
+                   const int nbands,
+                   const Parallel_Orbitals& pv,
+                   const BlockCyclicDistribution& p2d,
+                   const ModuleBase::DdlaContext* ddla);
 
 /// @brief Extract diagonal elements (orbital energies) from MO matrix
 /// @tparam T Data type (double or std::complex<double>)

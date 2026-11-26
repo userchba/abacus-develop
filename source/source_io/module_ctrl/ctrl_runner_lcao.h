@@ -12,6 +12,8 @@
 
 #include <fstream>
 
+namespace ModuleBase { class DdlaContext; }
+
 namespace ModuleIO
 {
 
@@ -37,7 +39,8 @@ void ctrl_runner_lcao(UnitCell& ucell,      // unitcell
 		Exx_NAO<TK> &exx_nao,
 		const Exx_Info& exx_info,
 		surchem &solvent,             // solvent model
-		std::ofstream& ofs_running);
+		std::ofstream& ofs_running,
+		const ModuleBase::DdlaContext* ddla);
 
 }
 

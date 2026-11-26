@@ -40,7 +40,8 @@ void ctrl_runner_lcao(UnitCell& ucell,      // unitcell
 		Exx_NAO<TK> &exx_nao,
         const Exx_Info& exx_info,
         surchem &solvent,             // solvent model
-        std::ofstream& ofs_running)
+        std::ofstream& ofs_running,
+        const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("ModuleIO", "ctrl_runner_lcao");
     ModuleBase::timer::start("ModuleIO", "ctrl_runner_lcao");
@@ -108,6 +109,7 @@ void ctrl_runner_lcao(UnitCell& ucell,      // unitcell
                                     inp.out_ndigits,
                                     inp.ks_solver,
                                     cal_exx,
+                                    ddla,
                                     exx_info
 #ifdef __EXX
                                     ,
@@ -180,8 +182,8 @@ void ctrl_runner_lcao(UnitCell& ucell,      // unitcell
                                             pelec->wg,
                                             gd,
                                             orb.cutoffs(),
-                                            two_center_bundle
-       );
+                                            two_center_bundle,
+                                            ddla);
     }
 
     ModuleBase::timer::end("ModuleIO", "ctrl_runner_lcao");
@@ -212,7 +214,8 @@ template void ctrl_runner_lcao<double, double>(UnitCell& ucell,      // unitcell
         Exx_NAO<double> &exx_nao,
         const Exx_Info& exx_info,
         surchem &solvent,             // solvent model
-        std::ofstream& ofs_running);
+        std::ofstream& ofs_running,
+        const ModuleBase::DdlaContext* ddla);
 
 // TK: complex<double>  TR: double 
 template void ctrl_runner_lcao<std::complex<double>, double>(UnitCell& ucell,      // unitcell
@@ -236,7 +239,8 @@ template void ctrl_runner_lcao<std::complex<double>, double>(UnitCell& ucell,   
         Exx_NAO<std::complex<double>> &exx_nao,
         const Exx_Info& exx_info,
         surchem &solvent,             // solvent model
-        std::ofstream& ofs_running);
+        std::ofstream& ofs_running,
+        const ModuleBase::DdlaContext* ddla);
 
 // TK: complex<double>  TR: complex<double>
 template void ctrl_runner_lcao<std::complex<double>, std::complex<double>>(UnitCell& ucell,      // unitcell
@@ -260,6 +264,7 @@ template void ctrl_runner_lcao<std::complex<double>, std::complex<double>>(UnitC
         Exx_NAO<std::complex<double>> &exx_nao,
         const Exx_Info& exx_info,
         surchem &solvent,             // solvent model
-        std::ofstream& ofs_running);
+        std::ofstream& ofs_running,
+        const ModuleBase::DdlaContext* ddla);
 
 } // end namespace

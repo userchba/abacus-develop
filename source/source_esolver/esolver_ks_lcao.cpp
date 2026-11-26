@@ -462,6 +462,7 @@ void ESolver_KS_LCAO<TK, TR>::after_all_runners(BaseCell& basecell)
         ModuleBase::WARNING_QUIT("ESolver_KS_LCAO::after_all_runners", "p_hamilt does not exist");
     }
 
+    const ModuleBase::DdlaContext* ddla = this->bound_ddla();
     ModuleIO::ctrl_runner_lcao<TK, TR>(ucell,
                                        *this->inp_,
                                        this->istep_,
@@ -483,7 +484,8 @@ void ESolver_KS_LCAO<TK, TR>::after_all_runners(BaseCell& basecell)
                                        this->exx_nao,
                                        this->exx_info_,
                                        this->solvent,
-                                       GlobalV::ofs_running);
+                                       GlobalV::ofs_running,
+                                       ddla);
 
     ModuleBase::timer::end("ESolver_KS_LCAO", "after_all_runners");
 }
@@ -848,6 +850,7 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep, const 
     ESolver_KS::after_scf(ucell, istep, conv_esolver);
 
     //! 2) write LCAO output using the applicable ionic or RT-TDDFT electronic step
+    const ModuleBase::DdlaContext* ddla = this->bound_ddla();
     ModuleIO::ctrl_scf_lcao<TK, TR>(ucell,
                                     *this->inp_,
                                     this->kv,
@@ -874,7 +877,8 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep, const 
                                     conv_esolver,
                                     this->scf_nmax_flag,
                                     istep,
-                                    GlobalV::ofs_running);
+                                    GlobalV::ofs_running,
+                                    ddla);
 
     //! 3) Clean up the adjacency records in RA when forces and stress are not needed
     if (!this->inp_->cal_force && !this->inp_->cal_stress)

@@ -7,13 +7,19 @@
 
 bool berryphase::berry_phase_flag = false;
 
-berryphase::berryphase()
+berryphase::berryphase() : ddla_(nullptr)
 {
     GDIR = PARAM.inp.gdir;
 }
 
 #ifdef __LCAO
-berryphase::berryphase(const Parallel_Orbitals* paraV_in) : paraV(paraV_in)
+berryphase::berryphase(const Parallel_Orbitals* paraV_in)
+    : berryphase(paraV_in, nullptr)
+{
+}
+
+berryphase::berryphase(const Parallel_Orbitals* paraV_in, const ModuleBase::DdlaContext* ddla)
+    : paraV(paraV_in), ddla_(ddla)
 {
     GDIR = PARAM.inp.gdir;
 }
@@ -330,7 +336,8 @@ double berryphase::stringPhase(const UnitCell& ucell,
         {
             if (PARAM.inp.nspin != 4)
             {
-                zeta = zeta * lcao_method.det_berryphase(ucell,ik_1, ik_2, dk, nbands, *(this->paraV), psi_in, kv);
+                zeta = zeta * lcao_method.det_berryphase(ucell,ik_1, ik_2, dk, nbands, *(this->paraV), psi_in, kv,
+                                                         this->ddla_);
             }
             else
             {

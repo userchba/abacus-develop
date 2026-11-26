@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "to_w90_lcao.h"
 
 #include "source_lcao/module_ri/abfs_vector3_order.h"
@@ -173,6 +174,23 @@ void toW90_LCAO::unkdotkb(const UnitCell& ucell,
     std::vector<std::complex<double>> out_matrix(nloc);
 
 #ifdef __MPI
+    if (this->ddla_ != nullptr)
+    {
+        using Complex = std::complex<double>;
+        using ModuleBase::ddla_linalg::ResidentMatrix;
+        const ResidentMatrix<Complex> overlap(this->ddla_, midmatrix.data(), this->ParaV->para_2d().desc());
+        const ResidentMatrix<Complex> left(this->ddla_, &psi_in(ik, 0, 0), this->ParaV->desc_wfc);
+        const ResidentMatrix<Complex> right(this->ddla_, &psi_in(ikb, 0, 0), this->ParaV->desc_wfc);
+        ResidentMatrix<Complex> temporary(this->ddla_, this->ParaV->desc_wfc);
+        ResidentMatrix<Complex> output(this->ddla_, out_matrix.data(), this->ParaV->para_2d().desc(), false);
+        ModuleBase::ddla_linalg::gemm('N', 'N', nlocal, Bands, nlocal,
+                                      alpha, overlap, right, beta, temporary);
+        ModuleBase::ddla_linalg::gemm('C', 'N', Bands, Bands, nlocal,
+                                      alpha, left, temporary, beta, output);
+        output.copy_to_host(out_matrix.data());
+    }
+    else
+    {
     ScalapackConnector::gemm(transa,
             transb,
             Bands,
@@ -212,6 +230,7 @@ void toW90_LCAO::unkdotkb(const UnitCell& ucell,
             one,
             one,
             this->ParaV->para_2d().desc());
+    }
 #endif
 
     int count_m = -1;

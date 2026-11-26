@@ -176,6 +176,15 @@ LibDDLA is a distributed dense linear algebra library for ScaLAPACK block-cyclic
 
 All of them run on the CPU, or on the GPUs with `device gpu`.
 
+The context selected by `ks_solver ddla` is also used for Mulliken populations
+(`out_mul`), MO-basis Vxc/EXX projections (`out_mat_xc`), and the kinetic,
+local/nonlocal pseudopotential and Hartree orbital energies (`out_eband`).
+LCAO Wannier90 overlaps (`wannier_method 2`) and Berry-phase occupied-band
+overlaps/LU use the same context. These projections keep their dense
+intermediates on the backend and copy the final result for host-side output.
+Coefficient uploads use the rectangular wavefunction descriptor, including
+when `nbands` is smaller than the AO basis size.
+
 The legacy `dft_plus_u 2` SCF occupation calculation can use the context
 selected by `ks_solver ddla` for overlap-density products and
 unitary/antiunitary symmetry rotations. Its existing force/stress restriction

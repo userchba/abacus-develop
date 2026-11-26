@@ -2,7 +2,9 @@
 addtest(
   TARGET MODULE_IO_ddla_postprocess
   LIBS parameter base device ${BLACS_LIB}
-  SOURCES ${ABACUS_SOURCE_DIR}/source_base/test/mpi_test_main.cpp
+  SOURCES ${CMAKE_CURRENT_LIST_DIR}/test_vxc_op_tools.cpp
+          ${ABACUS_SOURCE_DIR}/source_io/module_hs/vxc_op_tools.cpp
+          ${ABACUS_SOURCE_DIR}/source_base/test/mpi_test_main.cpp
           ${ABACUS_SOURCE_DIR}/source_basis/module_ao/parallel_orbitals.cpp)
 include(${ABACUS_SOURCE_DIR}/source_cell/module_symmetry/test_ddla/CMakeLists.txt)
 include(${ABACUS_SOURCE_DIR}/source_lcao/module_dftu/test_parallel/CMakeLists.txt)

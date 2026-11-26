@@ -55,6 +55,8 @@ struct Coordinate_3D
     }
 };
 
+namespace ModuleBase { class DdlaContext; }
+
 class toW90_LCAO : public toW90
 {
   public:
@@ -72,6 +74,20 @@ class toW90_LCAO : public toW90
                      const int& npol,
                      const LCAO_Orbitals& orb
                      );
+    toW90_LCAO(const bool& out_wannier_mmn,
+                     const bool& out_wannier_amn,
+                     const bool& out_wannier_unk,
+                     const bool& out_wannier_eig,
+                     const bool& out_wannier_wvfn_formatted,
+                     const std::string& nnkpfile,
+                     const std::string& wannier_spin,
+                     const int& nspin,
+                     const int& nbands,
+                     const int& nqx,
+                     const double& dq,
+                     const int& npol,
+                     const LCAO_Orbitals& orb,
+                     const ModuleBase::DdlaContext* ddla);
     ~toW90_LCAO();
 
     void calculate(const UnitCell& ucell,
@@ -155,6 +171,7 @@ class toW90_LCAO : public toW90
                  ModuleBase::ComplexMatrix& Amn);
 
     std::vector<FR_overlap<std::complex<double>>> FR;
+    const ModuleBase::DdlaContext* const ddla_;
 };
 #endif
 #endif

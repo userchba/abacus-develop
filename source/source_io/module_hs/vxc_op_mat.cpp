@@ -36,6 +36,7 @@ void write_Vxc(const int nspin,
                const int out_ndigits,
                const std::string& ks_solver,
                bool cal_exx,
+               const ModuleBase::DdlaContext* ddla,
                const Exx_Info& exx_info
 #ifdef __EXX
                ,
@@ -98,7 +99,8 @@ void write_Vxc(const int nspin,
         vxc_k_ao.set_zero_hk();
         int is = kv.isk[ik];
         dynamic_cast<hamilt::OperatorLCAO<TK, TR>*>(vxcs_op_ao[is].get())->contributeHk(ik);
-        const std::vector<TK>& vlocxc_k_mo = cVc(vxc_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d);
+        const std::vector<TK>& vlocxc_k_mo = cVc(vxc_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                                                 ddla);
 
 #ifdef __EXX
         if (cal_exx)
@@ -107,7 +109,8 @@ void write_Vxc(const int nspin,
             ModuleBase::GlobalFunc::ZEROS(vexxonly_k_ao.get_hk(), pv->para_2d().size());
             vexx_op_ao.contributeHk(ik);
             vexxonly_op_ao.contributeHk(ik);
-            std::vector<TK> vexx_k_mo = cVc(vexxonly_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d);
+            std::vector<TK> vexx_k_mo = cVc(vexxonly_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                                            ddla);
             e_orb_exx.emplace_back(orbital_energy(ik, nbands, vexx_k_mo, p2d));
         }
 #endif
@@ -115,7 +118,8 @@ void write_Vxc(const int nspin,
         {
             vdftu_op_ao.contributeHk(ik);
         }
-        const std::vector<TK>& vxc_tot_k_mo = cVc(vxc_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d);
+        const std::vector<TK>& vxc_tot_k_mo = cVc(vxc_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                                                  ddla);
         e_orb_tot.emplace_back(orbital_energy(ik, nbands, vxc_tot_k_mo, p2d));
 
         // write the full MO-basis matrix only when requested
@@ -168,7 +172,8 @@ template void write_Vxc<double, double>(
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const std::vector<double>&,
     const ModuleBase::matrix&, Grid_Driver&, const bool, const bool, const bool, const std::string&,
-    const std::string&, const int, const std::string&, bool, const Exx_Info&
+    const std::string&, const int, const std::string&, bool,
+    const ModuleBase::DdlaContext* ddla, const Exx_Info&
 #ifdef __EXX
     , std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<double>>>>*,
     std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<std::complex<double>>>>>*
@@ -180,7 +185,8 @@ template void write_Vxc<std::complex<double>, double>(
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const std::vector<double>&,
     const ModuleBase::matrix&, Grid_Driver&, const bool, const bool, const bool, const std::string&,
-    const std::string&, const int, const std::string&, bool, const Exx_Info&
+    const std::string&, const int, const std::string&, bool,
+    const ModuleBase::DdlaContext* ddla, const Exx_Info&
 #ifdef __EXX
     , std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<double>>>>*,
     std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<std::complex<double>>>>>*
@@ -192,7 +198,8 @@ template void write_Vxc<std::complex<double>, std::complex<double>>(
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const std::vector<double>&,
     const ModuleBase::matrix&, Grid_Driver&, const bool, const bool, const bool, const std::string&,
-    const std::string&, const int, const std::string&, bool, const Exx_Info&
+    const std::string&, const int, const std::string&, bool,
+    const ModuleBase::DdlaContext* ddla, const Exx_Info&
 #ifdef __EXX
     , std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<double>>>>*,
     std::vector<std::map<int, std::map<hamilt::TAC, RI::Tensor<std::complex<double>>>>>*

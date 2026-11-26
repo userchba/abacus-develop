@@ -1,3 +1,4 @@
+#include "source_base/module_external/ddla_linalg.h"
 #include "unk_overlap_lcao.h"
 #include "source_base/parallel_comm.h" // use POOL_WORLD, etc.
 #include "source_io/module_parameter/parameter.h"
@@ -545,6 +546,19 @@ std::complex<double> unkOverlap_lcao::det_berryphase(const UnitCell& ucell,
                                                      const psi::Psi<std::complex<double>>* psi_in,
                                                      const K_Vectors& kv)
 {
+    return this->det_berryphase(ucell, ik_L, ik_R, dk, occ_bands, para_orb, psi_in, kv, nullptr);
+}
+
+std::complex<double> unkOverlap_lcao::det_berryphase(const UnitCell& ucell,
+                                                     const int ik_L,
+                                                     const int ik_R,
+                                                     const ModuleBase::Vector3<double> dk,
+                                                     const int occ_bands,
+                                                     const Parallel_Orbitals& para_orb,
+                                                     const psi::Psi<std::complex<double>>* psi_in,
+                                                     const K_Vectors& kv,
+                                                     const ModuleBase::DdlaContext* ddla)
+{
     const std::complex<double> minus = std::complex<double>(-1.0, 0.0);
     std::complex<double> det = std::complex<double>(1.0, 0.0);
     std::complex<double>* midmatrix = nullptr;
@@ -562,6 +576,47 @@ std::complex<double> unkOverlap_lcao::det_berryphase(const UnitCell& ucell,
     std::complex<double> alpha = {1.0, 0.0}, beta = {0.0, 0.0};
     int one = 1;
 #ifdef __MPI
+    if (ddla != nullptr)
+    {
+        using Complex = std::complex<double>;
+        using ModuleBase::ddla_linalg::ResidentMatrix;
+        BlockCyclicDistribution occupied;
+        occupied.set(occBands, occBands, para_orb.para_2d().nb(), para_orb.para_2d().ictxt());
+        const ResidentMatrix<Complex> overlap(ddla, midmatrix, para_orb.para_2d().desc());
+        const ResidentMatrix<Complex> left(ddla, &psi_in[0](ik_L, 0, 0), para_orb.desc_wfc);
+        const ResidentMatrix<Complex> right(ddla, &psi_in[0](ik_R, 0, 0), para_orb.desc_wfc);
+        ResidentMatrix<Complex> temporary(ddla, para_orb.desc_wfc);
+        ResidentMatrix<Complex> output(ddla, occupied.desc());
+        ModuleBase::ddla_linalg::gemm('N', 'N', nlocal, occBands, nlocal,
+                                      alpha, overlap, right, beta, temporary);
+        ModuleBase::ddla_linalg::gemm('C', 'N', occBands, occBands, nlocal,
+                                      alpha, left, temporary, beta, output);
+        ModuleBase::ddla_linalg::ResidentLU<Complex> lu(output);
+        if (lu.info() == 0)
+        {
+            std::vector<Complex> factors(occupied.size());
+            std::vector<int> pivots;
+            output.copy_to_host(factors.data());
+            lu.copy_pivots_to_host(pivots);
+            for (int i = 0; i < occBands; ++i)
+            {
+                if (occupied.in_this_processor(i, i))
+                {
+                    const int ir = occupied.irloc(i);
+                    const int ic = occupied.icloc(i);
+                    const int offset = ic * occupied.nrloc() + ir;
+                    if (pivots[ir] != i + 1) { det *= minus; }
+                    det *= factors[offset];
+                }
+            }
+        }
+        else
+        {
+            det = Complex(0.0, 0.0);
+        }
+    }
+    else
+    {
     ScalapackConnector::gemm(transa,
             transb,
             occBands,
@@ -626,6 +681,7 @@ std::complex<double> unkOverlap_lcao::det_berryphase(const UnitCell& ucell,
         }
     }
     delete[] ipiv;
+    }
 #endif
     delete[] midmatrix;
     delete[] C_matrix;

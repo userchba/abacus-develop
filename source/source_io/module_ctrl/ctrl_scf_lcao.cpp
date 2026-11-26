@@ -97,7 +97,8 @@ void ModuleIO::ctrl_scf_lcao(UnitCell& ucell,
                              const bool conv_esolver,
                              const bool scf_nmax_flag,
                              const int istep,
-                             std::ofstream& ofs_running)
+                             std::ofstream& ofs_running,
+                             const ModuleBase::DdlaContext* ddla)
 {
     ModuleBase::TITLE("ModuleIO", "ctrl_scf_lcao");
     ModuleBase::timer::start("ModuleIO", "ctrl_scf_lcao");
@@ -627,7 +628,8 @@ void ModuleIO::ctrl_scf_lcao(UnitCell& ucell,
                           ucell,
                           gd,
                           istep,
-                          true);
+                          true,
+                          ddla);
     }
 
     //------------------------------------------------------------------
@@ -647,7 +649,7 @@ void ModuleIO::ctrl_scf_lcao(UnitCell& ucell,
     if (inp.calculation == "nscf" && berryphase::berry_phase_flag && ModuleSymmetry::Symmetry::symm_flag != 1)
     {
         std::cout << FmtCore::format("\n * * * * * *\n << Start %s.\n", "Berry phase calculation");
-        berryphase bp(&pv);
+        berryphase bp(&pv, ddla);
         bp.lcao_init(ucell, gd, kv, orb);
         // additional step before calling macroscopic_polarization
         bp.Macroscopic_polarization(ucell, pw_wfc->npwk_max, psi, pw_rho, pw_wfc, kv);
@@ -692,7 +694,8 @@ void ModuleIO::ctrl_scf_lcao(UnitCell& ucell,
                                  PARAM.globalv.nqx,
                                  PARAM.globalv.dq,
                                  PARAM.globalv.npol,
-                                 orb);
+                                 orb,
+                                 ddla);
 
             wan.calculate(ucell, gd, pelec->ekb, kv, *psi, &pv);
         }
@@ -859,7 +862,8 @@ template void ModuleIO::ctrl_scf_lcao<double, double>(
     const bool conv_esolver,
     const bool scf_nmax_flag,
     const int istep,
-    std::ofstream& ofs_running);
+    std::ofstream& ofs_running,
+    const ModuleBase::DdlaContext* ddla);
 
 // For multiple k-points
 template void ModuleIO::ctrl_scf_lcao<std::complex<double>, double>(
@@ -889,7 +893,8 @@ template void ModuleIO::ctrl_scf_lcao<std::complex<double>, double>(
     const bool conv_esolver,
     const bool scf_nmax_flag,
     const int istep,
-    std::ofstream& ofs_running);
+    std::ofstream& ofs_running,
+    const ModuleBase::DdlaContext* ddla);
 
 template void ModuleIO::ctrl_scf_lcao<std::complex<double>, std::complex<double>>(
     UnitCell& ucell,
@@ -918,4 +923,5 @@ template void ModuleIO::ctrl_scf_lcao<std::complex<double>, std::complex<double>
     const bool conv_esolver,
     const bool scf_nmax_flag,
     const int istep,
-    std::ofstream& ofs_running);
+    std::ofstream& ofs_running,
+    const ModuleBase::DdlaContext* ddla);

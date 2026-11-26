@@ -43,8 +43,8 @@ void write_eband_terms(const int nspin,
                        const ModuleBase::matrix& wg,
                        Grid_Driver& gd,
                        const std::vector<double>& orb_cutoff,
-                       const TwoCenterBundle& two_center_bundle
-)
+                       const TwoCenterBundle& two_center_bundle,
+                       const ModuleBase::DdlaContext* ddla)
     {
         // 0. prepare
         const int& nbands = wg.nc;
@@ -116,7 +116,8 @@ void write_eband_terms(const int nspin,
                 kinetic_k_ao.set_zero_hk();
                 dynamic_cast<hamilt::OperatorLCAO<TK, TR>*>(&kinetic_op)->contributeHk(ik);
                 e_orb_kinetic.emplace_back(orbital_energy(ik, nbands,
-                    cVc(kinetic_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d), p2d));
+                    cVc(kinetic_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                        ddla), p2d));
             }
 
             write_term(e_orb_kinetic, "eband_kin.txt", "T");
@@ -149,7 +150,8 @@ void write_eband_terms(const int nspin,
                 v_pp_local_k_ao.set_zero_hk();
                 dynamic_cast<hamilt::OperatorLCAO<TK, TR>*>(&v_pp_local_op)->contributeHk(ik);
                 e_orb_pp_local.emplace_back(orbital_energy(ik, nbands,
-                    cVc(v_pp_local_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d), p2d));
+                    cVc(v_pp_local_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                        ddla), p2d));
             }
             write_term(e_orb_pp_local, "eband_vl.txt", "V_loc");
         }
@@ -169,7 +171,8 @@ void write_eband_terms(const int nspin,
                 v_pp_nonlocal_k_ao.set_zero_hk();
                 dynamic_cast<hamilt::OperatorLCAO<TK, TR>*>(&v_pp_nonlocal_op)->contributeHk(ik);
                 e_orb_pp_nonlocal.emplace_back(orbital_energy(ik, nbands,
-                    cVc(v_pp_nonlocal_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d), p2d));
+                    cVc(v_pp_nonlocal_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                        ddla), p2d));
             }
             write_term(e_orb_pp_nonlocal, "eband_vnl.txt", "V_nonlocal");
         }
@@ -201,7 +204,8 @@ void write_eband_terms(const int nspin,
                 v_hartree_k_ao.set_zero_hk();
                 dynamic_cast<hamilt::OperatorLCAO<TK, TR>*>(v_hartree_op[is])->contributeHk(ik);
                 e_orb_hartree.emplace_back(orbital_energy(ik, nbands,
-                    cVc(v_hartree_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d), p2d));
+                    cVc(v_hartree_k_ao.get_hk(), &psi(ik, 0, 0), nbasis, nbands, *pv, p2d,
+                        ddla), p2d));
             }
             for (auto& op : v_hartree_op) { delete op; }
             write_term(e_orb_hartree, "eband_hart.txt", "V_H");
@@ -216,21 +220,21 @@ template void write_eband_terms<double, double>(
     const int, const int, const double, const int, const int, const Parallel_Orbitals*, const psi::Psi<double>&,
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const ModuleBase::matrix&, Grid_Driver&,
-    const std::vector<double>&, const TwoCenterBundle&
-);
+    const std::vector<double>&, const TwoCenterBundle&,
+    const ModuleBase::DdlaContext* ddla);
 
 template void write_eband_terms<std::complex<double>, double>(
     const int, const int, const double, const int, const int, const Parallel_Orbitals*, const psi::Psi<std::complex<double>>&,
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const ModuleBase::matrix&, Grid_Driver&,
-    const std::vector<double>&, const TwoCenterBundle&
-);
+    const std::vector<double>&, const TwoCenterBundle&,
+    const ModuleBase::DdlaContext* ddla);
 
 template void write_eband_terms<std::complex<double>, std::complex<double>>(
     const int, const int, const double, const int, const int, const Parallel_Orbitals*, const psi::Psi<std::complex<double>>&,
     const UnitCell&, Structure_Factor&, surchem&, const ModulePW::PW_Basis&, const ModulePW::PW_Basis&,
     const ModuleBase::matrix&, const Charge&, const K_Vectors&, const ModuleBase::matrix&, Grid_Driver&,
-    const std::vector<double>&, const TwoCenterBundle&
-);
+    const std::vector<double>&, const TwoCenterBundle&,
+    const ModuleBase::DdlaContext* ddla);
 
 } // namespace ModuleIO

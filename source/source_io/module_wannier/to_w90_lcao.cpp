@@ -28,6 +28,26 @@ toW90_LCAO::toW90_LCAO(const bool& out_wannier_mmn,
                                    const double& dq,
                                    const int& npol,
                                    const LCAO_Orbitals& orb)
+    : toW90_LCAO(out_wannier_mmn, out_wannier_amn, out_wannier_unk,
+                 out_wannier_eig, out_wannier_wvfn_formatted, nnkpfile,
+                 wannier_spin, nspin, nbands, nqx, dq, npol, orb, nullptr)
+{
+}
+
+toW90_LCAO::toW90_LCAO(const bool& out_wannier_mmn,
+                                   const bool& out_wannier_amn,
+                                   const bool& out_wannier_unk,
+                                   const bool& out_wannier_eig,
+                                   const bool& out_wannier_wvfn_formatted,
+                                   const std::string& nnkpfile,
+                                   const std::string& wannier_spin,
+                                   const int& nspin,
+                                   const int& nbands,
+                                   const int& nqx,
+                                   const double& dq,
+                                   const int& npol,
+                                   const LCAO_Orbitals& orb,
+                                   const ModuleBase::DdlaContext* ddla)
     : toW90(out_wannier_mmn,
                   out_wannier_amn,
                   out_wannier_unk,
@@ -40,7 +60,7 @@ toW90_LCAO::toW90_LCAO(const bool& out_wannier_mmn,
                   nqx,
                   dq,
                   npol),
-    orb_(orb)
+    orb_(orb), ddla_(ddla)
 {
 }
 

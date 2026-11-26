@@ -65,6 +65,7 @@ void write_Vxc(const int nspin,
                const int out_ndigits,
                const std::string& ks_solver,
                bool cal_exx,
+               const ModuleBase::DdlaContext* ddla,
                const Exx_Info& exx_info
 #ifdef __EXX
                ,
